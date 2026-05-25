@@ -1,4 +1,4 @@
-import { fmtEUR } from './format.js';
+import { fmtEUR, fmtPct } from './format.js';
 
 let chartInstance = null;
 
@@ -88,7 +88,7 @@ function computeScenarios(d) {
     });
   }
 
-  return { annees, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneLocAnnuelle };
+  return { annees, capitalEmprunte, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneLocAnnuelle };
 }
 
 function renderChart(annees) {
@@ -185,14 +185,96 @@ function renderTable(annees) {
   }
 }
 
+let lastResult = null;
+let lastInputs = null;
+
+function buildModal(d, res) {
+  const { capitalEmprunte, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneLocAnnuelle } = res;
+  const totalAcquisition = d.prix + d.notaire + d.travaux;
+
+  document.getElementById('modal-content').innerHTML = `
+    <h4 style="margin:0 0 8px; color:var(--accent);">Hypothèses achat</h4>
+    <div class="detail-step">
+      <div class="expr">Prix du bien + Frais de notaire (${fmtPct(d.notairePct)}) + Travaux</div>
+      <div class="res">${fmtEUR(d.prix)} + ${fmtEUR(d.notaire)} + ${fmtEUR(d.travaux)} = ${fmtEUR(totalAcquisition)}</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Apport personnel</div>
+      <div class="res">${fmtEUR(d.apport)}</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Capital emprunté</div>
+      <div class="res">${fmtEUR(totalAcquisition)} - ${fmtEUR(d.apport)} = ${fmtEUR(capitalEmprunte)}</div>
+    </div>
+
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Crédit</h4>
+    <div class="detail-step">
+      <div class="expr">Mensualité (amortissement) — taux ${fmtPct(d.tauxCredit)} sur ${d.dureeCredit} ans</div>
+      <div class="res">${fmtEUR(mensualite)} / mois</div>
+    </div>
+
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Dépenses annuelles comparées</h4>
+    <div class="detail-step">
+      <div class="expr">Achat : mensualités + entretien + taxe foncière</div>
+      <div class="res">${fmtEUR(mensualite * 12)} + ${fmtEUR(d.entretien)} + ${fmtEUR(d.taxe)} = ${fmtEUR(depenseAchatAnnuelle)}</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Location : loyer + charges</div>
+      <div class="res">${fmtEUR(d.loyer * 12)} + ${fmtEUR(d.chargesLoc * 12)} = ${fmtEUR(depenseLocAnnuelle)}</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Économie locative (différence dépensée en moins chaque année)</div>
+      <div class="res">${fmtEUR(depenseAchatAnnuelle)} - ${fmtEUR(depenseLocAnnuelle)} = ${epargneLocAnnuelle > 0 ? '+' : ''}${fmtEUR(epargneLocAnnuelle)}</div>
+    </div>
+
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine achat</h4>
+    <div class="detail-step">
+      <div class="expr">Valeur du bien à l'année t = (Prix + Travaux) × (1 + plus-value)^t</div>
+      <div class="res">${fmtEUR(d.prix + d.travaux)} × (1 + ${fmtPct(d.plusValue)})^t</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Capital restant dû (CRD) à l'année t</div>
+      <div class="res">Formule d'amortissement — déduit de la valeur de revente</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Patrimoine net achat = Valeur du bien - CRD</div>
+      <div class="res">À la revente, le crédit restant est remboursé — seule la valeur nette compte.</div>
+    </div>
+
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine location + placement</h4>
+    <div class="detail-step">
+      <div class="expr">Capital initial placé = Apport + Notaire + Travaux</div>
+      <div class="res">${fmtEUR(d.apport)} + ${fmtEUR(d.notaire)} + ${fmtEUR(d.travaux)} = ${fmtEUR(d.apport + d.notaire + d.travaux)}</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Chaque année : on ajoute l'économie locative au capital, puis on capitalise au rendement</div>
+      <div class="res">Capital(t) = (Capital(t-1) + ${fmtEUR(epargneLocAnnuelle)}) × (1 + ${fmtPct(d.rendement)})</div>
+    </div>
+    <p class="muted">Calcul théorique avant fiscalité et inflation. Le crédit et le placement sont supposés constants.</p>
+  `;
+}
+
+function setupModal() {
+  const modal = document.getElementById('modal');
+  document.getElementById('btn-detail')?.addEventListener('click', () => {
+    if (lastInputs && lastResult) buildModal(lastInputs, lastResult);
+    modal.classList.add('open');
+  });
+  document.getElementById('modal-close')?.addEventListener('click', () => modal.classList.remove('open'));
+  modal?.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+}
+
 function run() {
   try {
     const inputs = getInputs();
-    const { annees, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneLocAnnuelle } = computeScenarios(inputs);
+    const result = computeScenarios(inputs);
+    lastInputs = inputs;
+    lastResult = result;
 
     document.getElementById('result-section').classList.remove('hidden');
-    renderChart(annees);
-    renderTable(annees);
+    renderChart(result.annees);
+    renderTable(result.annees);
+    buildModal(inputs, result);
   } catch (e) {
     console.error('Run failed:', e);
   }
@@ -217,6 +299,8 @@ function init() {
       }
     });
   });
+
+  setupModal();
 }
 
 init();

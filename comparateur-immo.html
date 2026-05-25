@@ -93,7 +93,10 @@
 
   <div id="result-section" class="hidden">
     <div class="card">
-      <h2 style="margin:0 0 12px; color:var(--accent);">Évolution du patrimoine net</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <h2 style="margin:0; color:var(--accent);">Évolution du patrimoine net</h2>
+        <button id="btn-detail" class="btn btn-outline" style="margin-left:auto;">Détail du calcul</button>
+      </div>
       <div class="chart-wrap">
         <canvas id="patrimoine-chart"></canvas>
       </div>
@@ -116,6 +119,17 @@
         </table>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Modal détail -->
+<div id="modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Détail du calcul</h3>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div id="modal-content"></div>
   </div>
 </div>
 
