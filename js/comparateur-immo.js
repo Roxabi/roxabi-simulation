@@ -175,10 +175,10 @@ function renderChart(annees) {
   const rootStyle = getComputedStyle(document.documentElement);
   const accent = rootStyle.getPropertyValue('--accent').trim() || '#f0b429';
   const cyan = rootStyle.getPropertyValue('--cyan').trim() || '#22d3ee';
-  const success = rootStyle.getPropertyValue('--success').trim() || '#34d399';
-  const danger = rootStyle.getPropertyValue('--danger').trim() || '#f87171';
   const textMuted = rootStyle.getPropertyValue('--text-muted').trim() || '#9ca3af';
   const border = rootStyle.getPropertyValue('--border').trim() || '#21262d';
+  const successPale = 'rgba(52, 211, 153, 0.5)';
+  const dangerPale = 'rgba(248, 113, 113, 0.5)';
 
   chartInstance = new Chart(ctx, {
     type: 'line',
@@ -210,24 +210,28 @@ function renderChart(annees) {
         {
           label: 'Valeur de revente',
           data: dataRevente,
-          borderColor: success,
-          backgroundColor: success,
+          borderColor: successPale,
+          backgroundColor: successPale,
           borderWidth: 2,
+          borderDash: [4, 4],
           fill: false,
           tension: 0.3,
           pointRadius: 2,
           pointHoverRadius: 5,
+          hidden: true,
         },
         {
           label: 'Capital restant dû',
           data: dataCRD,
-          borderColor: danger,
-          backgroundColor: danger,
+          borderColor: dangerPale,
+          backgroundColor: dangerPale,
           borderWidth: 2,
+          borderDash: [4, 4],
           fill: false,
           tension: 0.3,
           pointRadius: 2,
           pointHoverRadius: 5,
+          hidden: true,
         },
       ],
     },

@@ -82,6 +82,12 @@
           <button type="button" class="info-tooltip" data-tooltip="Taux annuel auquel les cashflows annuels (loyer − charges − mensualité) sont composés pour le calcul du montant récupéré. Représente le coût d'opportunité du capital de l'investisseur. Le TRI, lui, est indépendant de ce taux." aria-label="Aide rendement cashflow">i</button>
         </div>
         <input id="cashflow-rate" type="number" min="0" max="20" step="0.1" placeholder="5" value="5">
+
+        <div class="differe-row" style="margin-bottom:6px;">
+          <label for="horizon-rendement" style="margin-bottom:0;">Horizon d'évaluation (années)</label>
+          <button type="button" class="info-tooltip" data-tooltip="Année à laquelle on lit la rentabilité brute/nette et le cash-flow mensuel. Le loyer est indexé chaque année (augmentation annuelle) donc ces KPIs évoluent avec le temps. Le chart Performance investisseur, lui, balaie 0 → 20 ans." aria-label="Aide horizon d'évaluation">i</button>
+        </div>
+        <input id="horizon-rendement" type="number" min="0" max="20" step="1" placeholder="5" value="5">
       </div>
 
       <!-- Revenus locatifs -->
@@ -160,6 +166,11 @@
             <input id="garantie" type="number" min="0" step="100" placeholder="0" value="0">
           </div>
         </div>
+
+        <div class="credit-mensualite-row">
+          <span class="credit-mensualite-label">Mensualité crédit (assurance incluse)</span>
+          <span class="credit-mensualite-value" id="credit-mensualite-display">—</span>
+        </div>
       </div>
 
       <!-- Charges -->
@@ -169,7 +180,7 @@
           <div class="charge-item">
             <label for="charge-copro">Charges de copro</label>
             <div class="charge-row">
-              <input id="charge-copro" type="number" min="0" step="10" placeholder="0" value="0">
+              <input id="charge-copro" type="number" min="0" step="10" placeholder="50" value="50">
               <select id="unit-copro" class="unit-select">
                 <option value="mois">€/mois</option>
                 <option value="an">€/an</option>
@@ -180,10 +191,10 @@
           <div class="charge-item">
             <label for="charge-pno">Assurance PNO</label>
             <div class="charge-row">
-              <input id="charge-pno" type="number" min="0" step="10" placeholder="0" value="0">
+              <input id="charge-pno" type="number" min="0" step="10" placeholder="120" value="120">
               <select id="unit-pno" class="unit-select">
                 <option value="mois">€/mois</option>
-                <option value="an">€/an</option>
+                <option value="an" selected>€/an</option>
               </select>
             </div>
           </div>
@@ -213,10 +224,10 @@
           <div class="charge-item">
             <label for="charge-banque">Frais bancaires</label>
             <div class="charge-row">
-              <input id="charge-banque" type="number" min="0" step="10" placeholder="0" value="0">
+              <input id="charge-banque" type="number" min="0" step="10" placeholder="15" value="15">
               <select id="unit-banque" class="unit-select">
                 <option value="mois">€/mois</option>
-                <option value="an">€/an</option>
+                <option value="an" selected>€/an</option>
               </select>
             </div>
           </div>
@@ -279,10 +290,10 @@
           <div class="charge-item">
             <label for="charge-taxe-fonciere">Taxe foncière</label>
             <div class="charge-row">
-              <input id="charge-taxe-fonciere" type="number" min="0" step="10" placeholder="0" value="0">
+              <input id="charge-taxe-fonciere" type="number" min="0" step="10" placeholder="900" value="900">
               <select id="unit-taxe-fonciere" class="unit-select">
                 <option value="mois">€/mois</option>
-                <option value="an">€/an</option>
+                <option value="an" selected>€/an</option>
               </select>
             </div>
           </div>
@@ -290,10 +301,10 @@
           <div class="charge-item">
             <label for="charge-divers">Charges diverses</label>
             <div class="charge-row">
-              <input id="charge-divers" type="number" min="0" step="10" placeholder="0" value="0">
+              <input id="charge-divers" type="number" min="0" step="10" placeholder="200" value="200">
               <select id="unit-divers" class="unit-select">
                 <option value="mois">€/mois</option>
-                <option value="an">€/an</option>
+                <option value="an" selected>€/an</option>
               </select>
             </div>
           </div>
@@ -311,11 +322,17 @@
         <div class="kpi-grid">
           <div class="kpi">
             <div class="value" id="kpi-renta-brute">—</div>
-            <div class="label">Rentabilité brute</div>
+            <div class="label kpi-label-row">
+              <span id="lbl-renta-brute">Rentabilité brute</span>
+              <button type="button" class="info-tooltip" data-tooltip="Rentabilité brute = (Loyer effectif annuel × (1 − vacance)) / (Total acquisition). Indicateur de rendement avant charges. Évolue avec l'indexation annuelle du loyer (donc avec l'horizon d'évaluation choisi). Ne tient pas compte des charges, ni du crédit, ni de la fiscalité." aria-label="Aide rentabilité brute">i</button>
+            </div>
           </div>
           <div class="kpi">
             <div class="value" id="kpi-renta-nette">—</div>
-            <div class="label">Rentabilité nette</div>
+            <div class="label kpi-label-row">
+              <span id="lbl-renta-nette">Rentabilité nette</span>
+              <button type="button" class="info-tooltip" data-tooltip="Rentabilité nette = (Loyer effectif − Charges annuelles) / (Total acquisition). Indicateur de rendement après charges (copro, PNO, taxe foncière, etc.) mais avant crédit et fiscalité. Évolue avec l'horizon (loyer indexé)." aria-label="Aide rentabilité nette">i</button>
+            </div>
           </div>
           <div class="kpi">
             <div class="value" id="kpi-mensualite">—</div>
@@ -323,7 +340,7 @@
           </div>
           <div class="kpi">
             <div class="value" id="kpi-cashflow">—</div>
-            <div class="label">Cash-flow mensuel</div>
+            <div class="label" id="lbl-cashflow">Cash-flow mensuel</div>
           </div>
           <div class="kpi">
             <div class="value" id="kpi-emprunt">—</div>

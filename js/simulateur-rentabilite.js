@@ -3,7 +3,7 @@ import { setupModal } from './modal.js';
 import { setupTooltips } from './info-tooltip.js';
 import { createStorage } from './storage.js';
 
-const storage = createStorage('renta', 1);
+const storage = createStorage('renta', 2);
 const SAVED_ID = 'current';
 let chartInstance = null;
 let lastInputs = null;
@@ -55,6 +55,7 @@ function getInputs() {
   // Revente + investisseur
   const inflationRevente = val('inflation-revente') / 100;
   const cashflowRate = val('cashflow-rate') / 100;
+  const horizonRendement = Math.max(0, Math.min(HORIZON, Math.round(val('horizon-rendement'))));
 
   return {
     prix, notairePct, notaire, agencePct, agence,
@@ -76,6 +77,7 @@ function getInputs() {
     augmentationLoyer,
     inflationRevente,
     cashflowRate,
+    horizonRendement,
   };
 }
 
@@ -248,6 +250,9 @@ function computeRentabilite(d) {
     if (t < HORIZON) baseCF.push(cashFlowAnnuel);
   }
 
+  const h = d.horizonRendement ?? 0;
+  const horizonRow = annees[h] || annees[0];
+
   return {
     totalAcquisition,
     montantEmprunte: K0,
@@ -255,9 +260,10 @@ function computeRentabilite(d) {
     totalInterets,
     totalAssurance,
     coutTotalPret,
-    rentabiliteBrute: annees[0].rentabiliteBrute,
-    rentabiliteNette: annees[0].rentabiliteNette,
-    cashFlowMensuel: annees[0].cashFlowMensuel,
+    rentabiliteBrute: horizonRow.rentabiliteBrute,
+    rentabiliteNette: horizonRow.rentabiliteNette,
+    cashFlowMensuel: horizonRow.cashFlowMensuel,
+    horizonRendement: h,
     annees,
     differe: d.differe,
     differeDuree: d.differeDuree,
@@ -266,10 +272,19 @@ function computeRentabilite(d) {
 }
 
 function renderKPIs(res) {
+  const h = res.horizonRendement ?? 0;
+  const yearSuffix = ` (A${h})`;
   document.getElementById('kpi-renta-brute').textContent = fmtPct(res.rentabiliteBrute / 100);
   document.getElementById('kpi-renta-nette').textContent = fmtPct(res.rentabiliteNette / 100);
   document.getElementById('kpi-mensualite').textContent = fmtEUR(res.mensualite);
   document.getElementById('kpi-cashflow').textContent = fmtEUR(res.cashFlowMensuel);
+
+  const lblBrute = document.getElementById('lbl-renta-brute');
+  if (lblBrute) lblBrute.textContent = 'Rentabilité brute' + yearSuffix;
+  const lblNette = document.getElementById('lbl-renta-nette');
+  if (lblNette) lblNette.textContent = 'Rentabilité nette' + yearSuffix;
+  const lblCf = document.getElementById('lbl-cashflow');
+  if (lblCf) lblCf.textContent = 'Cash-flow mensuel' + yearSuffix;
 
   const cfEl = document.getElementById('kpi-cashflow');
   cfEl.classList.toggle('positive', res.cashFlowMensuel >= 0);
@@ -277,6 +292,9 @@ function renderKPIs(res) {
 
   document.getElementById('kpi-emprunt').textContent = fmtEUR(res.montantEmprunte);
   document.getElementById('kpi-cout-pret').textContent = fmtEUR(res.coutTotalPret);
+
+  const mensualiteDisplay = document.getElementById('credit-mensualite-display');
+  if (mensualiteDisplay) mensualiteDisplay.textContent = fmtEUR(res.mensualite);
 }
 
 function renderChart(annees) {
@@ -515,7 +533,7 @@ function updateLiveDisplays() {
 
 function snapshotRawInputs() {
   const ids = [
-    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente','cashflow-rate',
+    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente','cashflow-rate','horizon-rendement',
     'loyer','vacance','vacance-unit','augmentation-loyer',
     'charge-copro','unit-copro','charge-pno','unit-pno','charge-compta','unit-compta',
     'charge-cga','unit-cga','charge-banque','unit-banque','charge-eau','unit-eau',
@@ -580,7 +598,7 @@ function init() {
 
   // Auto-recalc on change
   const inputIds = [
-    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente','cashflow-rate',
+    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente','cashflow-rate','horizon-rendement',
     'loyer','vacance','vacance-unit','augmentation-loyer',
     'charge-copro','charge-pno','charge-compta','charge-cga','charge-banque',
     'charge-eau','charge-elec','charge-gaz','charge-internet','charge-cfe',
