@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur de rentabilité locative — Roxabi Simulation</title>
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/simulateur-rentabilite.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<nav class="topbar">
+  <a class="topbar-logo" href="index.html">
+    <svg width="20" height="20" viewBox="0 0 240 170" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polygon points="120,14 182,82 156,142 120,158 84,142 58,82" fill="none" stroke="currentColor" stroke-width="8" stroke-opacity="0.6"/>
+      <circle cx="120" cy="95" r="20" fill="currentColor" opacity="0.3"/>
+      <circle cx="120" cy="95" r="6" fill="currentColor"/>
+    </svg>
+    Roxabi Simulation
+  </a>
+  <div class="topbar-nav">
+    <a href="simulateur.html">Calculateur</a>
+    <a href="comparateur-immo.html">Comparateur</a>
+    <a href="simulateur-rentabilite.html" class="active">Rentabilité</a>
+  </div>
+  <button id="theme-toggle">
+    <span class="icon-sun"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
+    <span class="icon-moon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+  </button>
+</nav>
+
+<div class="container container-wide">
+  <h1>Simulateur de rentabilité locative</h1>
+  <p class="subtitle">Analysez la rentabilité brute et nette d'un bien locatif : loyers, charges, crédit, cash-flow et valeur de revente.</p>
+
+  <div class="layout-grid">
+    <div class="inputs-col">
+
+      <!-- Bien & Acquisition -->
+      <div class="card param-card">
+        <h2>Bien & Acquisition</h2>
+        <label for="prix">Prix du bien FAI (€)</label>
+        <input id="prix" type="number" min="0" step="1000" placeholder="200000" value="200000">
+
+        <label for="notaire-pct">Frais de notaire (%)</label>
+        <input id="notaire-pct" type="number" min="0" max="20" step="0.1" placeholder="7" value="7">
+        <span class="live-display" id="notaire-display">≈ 14 000 €</span>
+
+        <label for="agence-pct">Frais d'agence (%)</label>
+        <input id="agence-pct" type="number" min="0" max="10" step="0.1" placeholder="0" value="0">
+        <span class="live-display" id="agence-display">≈ 0 €</span>
+
+        <div class="row">
+          <div>
+            <label for="travaux">Travaux (€)</label>
+            <input id="travaux" type="number" min="0" step="1000" placeholder="0" value="0">
+          </div>
+          <div>
+            <label for="meubles">Meubles (€)</label>
+            <input id="meubles" type="number" min="0" step="1000" placeholder="0" value="0">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="superficie">Superficie (m²)</label>
+            <input id="superficie" type="number" min="0" step="1" placeholder="50" value="50">
+          </div>
+          <div>
+            <label for="inflation-revente">Inflation annuelle revente (%)</label>
+            <input id="inflation-revente" type="number" min="-5" max="20" step="0.1" placeholder="2" value="2">
+          </div>
+        </div>
+      </div>
+
+      <!-- Crédit -->
+      <div class="card param-card">
+        <h2>Crédit</h2>
+        <div class="row">
+          <div>
+            <label for="apport">Apport (€)</label>
+            <input id="apport" type="number" min="0" step="1000" placeholder="40000" value="40000">
+          </div>
+          <div>
+            <label for="duree-credit">Durée (mois)</label>
+            <input id="duree-credit" type="number" min="1" max="360" step="1" placeholder="240" value="240">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="taux-credit">Taux emprunt (%)</label>
+            <input id="taux-credit" type="number" min="0" step="0.05" placeholder="3.5" value="3.5">
+          </div>
+          <div>
+            <label for="taux-assurance">Taux assurance (%)</label>
+            <input id="taux-assurance" type="number" min="0" step="0.05" placeholder="0.3" value="0.3">
+          </div>
+        </div>
+
+        <div class="differe-row" style="margin-bottom:10px;">
+          <label for="differe" style="margin-bottom:0;">Différé</label>
+          <select id="differe">
+            <option value="aucun">Aucun</option>
+            <option value="partiel">Partiel</option>
+            <option value="total">Total</option>
+          </select>
+          <button type="button" class="info-tooltip" data-tooltip="Partiel = vous payez uniquement les intérêts pendant le différé. Total = 0 € mensualité, les intérêts s'ajoutent au capital." aria-label="Aide différé crédit">i</button>
+        </div>
+        <div id="differe-duree-wrap" class="hidden">
+          <label for="differe-duree">Durée du différé (mois)</label>
+          <input id="differe-duree" type="number" min="1" max="60" step="1" placeholder="12" value="12">
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="frais-dossier">Frais de dossier (€)</label>
+            <input id="frais-dossier" type="number" min="0" step="100" placeholder="500" value="500">
+          </div>
+          <div>
+            <label for="garantie">Garantie (€)</label>
+            <input id="garantie" type="number" min="0" step="100" placeholder="0" value="0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenus locatifs -->
+      <div class="card param-card">
+        <h2>Revenus locatifs</h2>
+        <label for="loyer">Loyer mensuel (€)</label>
+        <input id="loyer" type="number" min="0" step="50" placeholder="900" value="900">
+
+        <div class="row">
+          <div>
+            <label for="vacance">Vacance locative</label>
+            <input id="vacance" type="number" min="0" step="0.01" placeholder="1" value="1">
+          </div>
+          <div>
+            <label for="vacance-unit">&nbsp;</label>
+            <select id="vacance-unit" class="unit-select">
+              <option value="mois">mois / an</option>
+              <option value="an">année(s)</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="augmentation-loyer">Augmentation annuelle loyer (%)</label>
+        <input id="augmentation-loyer" type="number" min="-5" max="20" step="0.1" placeholder="1.5" value="1.5">
+      </div>
+
+      <!-- Charges -->
+      <div class="card param-card">
+        <h2>Charges</h2>
+        <div class="charges-grid">
+          <div class="charge-item">
+            <label for="charge-copro">Charges de copro</label>
+            <div class="charge-row">
+              <input id="charge-copro" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-copro" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-pno">Assurance PNO</label>
+            <div class="charge-row">
+              <input id="charge-pno" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-pno" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-compta">Comptabilité</label>
+            <div class="charge-row">
+              <input id="charge-compta" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-compta" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-cga">CGA</label>
+            <div class="charge-row">
+              <input id="charge-cga" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-cga" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-banque">Frais bancaires</label>
+            <div class="charge-row">
+              <input id="charge-banque" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-banque" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-eau">Eau</label>
+            <div class="charge-row">
+              <input id="charge-eau" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-eau" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-elec">Élec</label>
+            <div class="charge-row">
+              <input id="charge-elec" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-elec" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-gaz">Gaz</label>
+            <div class="charge-row">
+              <input id="charge-gaz" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-gaz" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-internet">Internet</label>
+            <div class="charge-row">
+              <input id="charge-internet" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-internet" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-cfe">CFE</label>
+            <div class="charge-row">
+              <input id="charge-cfe" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-cfe" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-taxe-fonciere">Taxe foncière</label>
+            <div class="charge-row">
+              <input id="charge-taxe-fonciere" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-taxe-fonciere" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="charge-item">
+            <label for="charge-divers">Charges diverses</label>
+            <div class="charge-row">
+              <input id="charge-divers" type="number" min="0" step="10" placeholder="0" value="0">
+              <select id="unit-divers" class="unit-select">
+                <option value="mois">€/mois</option>
+                <option value="an">€/an</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /inputs-col -->
+
+    <div class="results-col" id="result-section">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <h2 style="margin:0; color:var(--accent);">Résultats</h2>
+          <button id="btn-detail" class="btn btn-outline" style="margin-left:auto;">Détail du calcul</button>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="value" id="kpi-renta-brute">—</div>
+            <div class="label">Rentabilité brute</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="kpi-renta-nette">—</div>
+            <div class="label">Rentabilité nette</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="kpi-mensualite">—</div>
+            <div class="label">Mensualité crédit</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="kpi-cashflow">—</div>
+            <div class="label">Cash-flow mensuel</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="kpi-emprunt">—</div>
+            <div class="label">Montant emprunté</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="kpi-cout-pret">—</div>
+            <div class="label">Coût total du prêt</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin:0 0 12px; color:var(--accent);">Valeur du projet (revente − dette)</h2>
+        <div class="chart-wrap">
+          <canvas id="renta-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin:0 0 12px; color:var(--accent);">Synthèse année par année</h2>
+        <div class="table-wrap">
+          <table id="synthese-table" class="synthese-table">
+            <thead>
+              <tr>
+                <th>Année</th>
+                <th>Mensualité</th>
+                <th>CF / mois</th>
+                <th>Valeur revente</th>
+                <th>Rent. nette</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="source-badge">
+        Calcul théorique · Aucune donnée envoyée
+      </div>
+    </div><!-- /results-col -->
+  </div><!-- /layout-grid -->
+</div>
+
+<!-- Modal détail -->
+<div id="modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Détail du calcul</h3>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-brand">
+    <svg width="16" height="14" viewBox="0 0 240 170" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polygon points="120,14 182,82 156,142 120,158 84,142 58,82" fill="none" stroke="currentColor" stroke-width="8" stroke-opacity="0.5"/>
+      <circle cx="120" cy="95" r="20" fill="currentColor" opacity="0.3"/>
+    </svg>
+    Made with love by Roxabi
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com/MickaelV0/roxabi-simulation" target="_blank" rel="noopener">GitHub</a>
+    <span class="footer-sep">&#183;</span>
+    <a href="mentions-legales.html">Mentions légales</a>
+  </div>
+</footer>
+
+<script src="js/theme.js"></script>
+<script type="module" src="js/simulateur-rentabilite.js"></script>
+</body>
+</html>

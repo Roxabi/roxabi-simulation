@@ -1,5 +1,5 @@
 /* Wide container override (only on the comparateur page) */
-.container-wide { max-width: 2000px; }
+.container-wide { max-width: 1900px; }
 
 /* Split layout: inputs left, results right (on large screens) */
 .layout-grid {

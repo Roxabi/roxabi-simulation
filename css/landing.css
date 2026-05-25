@@ -71,7 +71,7 @@ body {
   display: flex;
   flex-direction: column;
 }
-.container { max-width: 960px; margin: 0 auto; padding: 80px 20px 0; width: 100%; flex: 1; }
+.container { max-width: 1900px; margin: 0 auto; padding: 80px 20px 0; width: 100%; flex: 1; }
 
 /* Hero */
 .hero {
@@ -188,10 +188,25 @@ body {
 [data-theme="light"] .topbar { background: rgba(248,247,244,0.92); }
 .topbar-logo {
   font-size: 0.875rem; font-weight: 700;
-  color: var(--accent); margin-right: auto; white-space: nowrap;
+  color: var(--accent); white-space: nowrap;
   display: flex; align-items: center; gap: 8px;
   text-decoration: none;
 }
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-right: auto;
+}
+.topbar-nav a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.topbar-nav a:hover { color: var(--accent); }
+.topbar-nav a.active { color: var(--accent); font-weight: 600; }
 .topbar-logo:hover { opacity: 0.85; }
 .topbar-logo svg { color: var(--accent); }
 #theme-toggle {

@@ -177,7 +177,125 @@ S'applique aux **deux** pots (locataire ET acheteur côté placement). La plus-v
 
 ---
 
-## 3. Comparateur multi-investissements
+## 3. Simulateur de rentabilité locative
+
+### Objectif
+Analyser la **rentabilité brute et nette** d'un bien locatif, ainsi que le cash-flow mensuel, le coût total du crédit et la valeur de revente estimée sur un horizon de 20 ans.
+
+### Paramètres
+
+| Zone | Paramètre | Défaut | Description |
+|---|---|---|---|
+| **Bien** | Prix du bien FAI | 200 000 € | Prix d'acquisition frais d'agence inclus |
+| | Frais de notaire | 7 % | Calculé en % du prix |
+| | Frais d'agence | 0 % | Calculé en % du prix |
+| | Travaux | 0 € | Investissement initial hors prix |
+| | Meubles | 0 € | Ameublement (meublé) |
+| | Superficie | 50 m² | Surface du logement (indicatif) |
+| | Inflation revente | 2 % | Hausse annuelle de la valeur de revente |
+| **Revenus** | Loyer mensuel | 900 € | Loyer perçu chaque mois |
+| | Vacance locative | 1 mois/an | Période sans locataire (mois/an ou années) |
+| | Augmentation loyer | 1.5 % | Indexation annuelle du loyer |
+| **Charges** | Charges de copro | 0 €/mois | Charges communes |
+| | Assurance PNO | 0 €/mois | Assurance propriétaire non occupant |
+| | Comptabilité / CGA | 0 €/mois | Frais de gestion comptable |
+| | Frais bancaires | 0 €/mois | Frais de compte courant |
+| | Eau / Élec / Gaz / Internet | 0 €/mois | Charges récupérables ou non |
+| | CFE | 0 €/mois | Contribution foncière des entreprises |
+| | Taxe foncière | 0 €/mois | Impôt local annuel |
+| | Charges diverses | 0 €/mois | Autres charges |
+| **Crédit** | Apport | 40 000 € | Capital personnel injecté |
+| | Durée | 240 mois | Durée totale du prêt |
+| | Taux emprunt | 3.5 % | Taux annuel du crédit immobilier |
+| | Taux assurance | 0.3 % | Taux annuel de l'assurance emprunteur |
+| | Différé | Aucun | Partiel (intérêts seuls) ou Total (0 € + capitalisation) |
+| | Frais de dossier | 500 € | Frais bancaires de montage |
+| | Garantie | 0 € | Garantie hypothécaire ou caution |
+
+### Formules clés
+
+**Total acquisition** :
+```
+Total = prix + travaux + meubles + notaire + agence + frais_dossier + garantie
+```
+
+**Montant à emprunter** :
+```
+K = Total − apport
+```
+
+**Mensualité de crédit** (amortissement constant) :
+```
+M = K × i / (1 − (1+i)^−n)
+i = taux_annuel / 12
+n = durée en mois
+```
+
+**Différé de crédit** :
+- **Aucun** : amortissement standard dès le premier mois.
+- **Partiel** : pendant `d` mois, mensualité = intérêts seuls (`K × i`). Le capital reste constant. Après le différé, amortissement standard sur la durée restante.
+- **Total** : pendant `d` mois, mensualité = 0 €. Les intérêts mensuels sont capitalisés (`K ← K × (1+i)`). Après le différé, amortissement standard sur le capital majoré et la durée restante.
+
+**Mensualité assurance emprunteur** :
+```
+Assurance = K × taux_assurance / 12
+```
+
+**Coût total du prêt** :
+```
+Coût = K + Σ(intérêts) + Σ(assurance) + frais_dossier + garantie
+```
+
+**Rentabilité brute** :
+```
+Brute = (loyer_annuel_effectif / Total) × 100
+```
+
+**Rentabilité nette** :
+```
+Nette = ((loyer_annuel_effectif − charges_annuelles) / Total) × 100
+```
+
+**Cash-flow mensuel** :
+```
+CF = loyer_mensuel × (1 − vacance) − charges_mensuelles − mensualité_totale
+```
+
+**Valeur de revente estimée** :
+```
+Revente(t) = Total × (1 + inflation_revente)^t
+```
+
+### Charges — unités
+
+Chaque poste de charges peut être saisi en **€/mois** ou **€/an**. Le simulateur convertit automatiquement en annuel pour le calcul de la rentabilité nette, et en mensuel pour le cash-flow.
+
+### Vacance locative
+
+La vacance peut être exprimée en **mois par an** (ex. 1 mois → 8.3 % de vacance) ou en **années** (ex. 0.33 an → 4 mois). Le loyer effectif est ajusté en conséquence.
+
+### Limites et hypothèses
+
+- **Pas de fiscalité immobilière modélisée** : pas d'amortissement, pas de choix entre régimes (LMNP, SCI IS, micro, réel). Le simulateur se concentre sur la rentabilité financière pure.
+- **Pas d'inflation des charges** : les charges restent constantes sur l'horizon.
+- **Crédit à taux fixe** sur toute la durée.
+- **Loyer indexé** uniquement par le % d'augmentation annuel.
+- **Revente** calculée par inflation simple, sans modélisation de plus-value immobilière ni fiscalité de cession.
+
+### Sorties
+
+- Rentabilité brute (%)
+- Rentabilité nette (%)
+- Mensualité de crédit (€)
+- Cash-flow mensuel (€)
+- Montant emprunté (€)
+- Coût total du prêt (€)
+- Graphique : valeur de revente estimée sur 20 ans
+- Tableau synthèse : Année 2, 5, 15, 20 — mensualité, cash-flow, revente, rentabilité nette
+
+---
+
+## 4. Comparateur multi-investissements
 
 ### Objectif (à venir)
 Comparer 2 à 3 types de placements (ETF, SCPI, assurance-vie, PER, crypto, etc.) sur un horizon temporel donné, en intégrant fiscalité, frais de gestion et rendement net.
