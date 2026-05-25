@@ -158,7 +158,8 @@ function computeRentabilite(d) {
 
     const cashFlowMensuel = loyerMensuel * (1 - d.vacancePct) - chargesMensuelles - mensualiteMoyenne;
 
-    const revente = totalAcquisition * Math.pow(1 + d.inflationRevente, t);
+    // Revente basée sur (prix + travaux) — les frais (notaire, dossier, agence) sont sunk costs
+    const revente = (d.prix + d.travaux) * Math.pow(1 + d.inflationRevente, t);
 
     const rentabiliteBrute = totalAcquisition > 0 ? (loyerEffectifAnnuel / totalAcquisition) * 100 : 0;
     const rentabiliteNette = totalAcquisition > 0 ? ((loyerEffectifAnnuel - chargesAnnuelles) / totalAcquisition) * 100 : 0;
@@ -240,33 +241,34 @@ function renderChart(annees) {
           label: 'Valeur de revente',
           data: dataRevente,
           borderColor: accent,
-          backgroundColor: accent + '20',
+          backgroundColor: accent,
+          borderWidth: 2,
           fill: false,
           tension: 0.3,
           pointRadius: 2,
           pointHoverRadius: 5,
-        },
-        {
-          label: 'Valeur nette (revente − dette)',
-          data: dataNette,
-          borderColor: cyan,
-          backgroundColor: cyan + '30',
-          fill: false,
-          tension: 0.3,
-          pointRadius: 2,
-          pointHoverRadius: 5,
-          borderWidth: 2.5,
         },
         {
           label: 'Capital restant dû',
           data: dataCRD,
           borderColor: danger,
-          backgroundColor: danger + '20',
+          backgroundColor: danger,
+          borderWidth: 2,
           fill: false,
           tension: 0.3,
           pointRadius: 2,
           pointHoverRadius: 5,
-          borderDash: [4, 4],
+        },
+        {
+          label: 'Valeur nette projet (revente − dette)',
+          data: dataNette,
+          borderColor: cyan,
+          backgroundColor: cyan,
+          borderWidth: 3,
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
         },
       ],
     },
@@ -399,10 +401,14 @@ function buildModal(d, res) {
       <div class="res">${fmtEUR(d.loyer * (1 - d.vacancePct))} − ${fmtEUR(chargesMensuelles)} − ${fmtEUR(mensualite)} = ${fmtEUR(cashFlowMensuel)}</div>
     </div>
 
-    <h4 style="margin:16px 0 8px; color:var(--accent);">Revente</h4>
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Revente & valeur projet</h4>
     <div class="detail-step">
-      <div class="expr">Valeur de revente année t = Total acquisition × (1 + inflation)^t</div>
-      <div class="res">Inflation revente : ${fmtPct(d.inflationRevente)}</div>
+      <div class="expr">Valeur de revente(t) = (Prix + Travaux) × (1 + inflation)^t</div>
+      <div class="res">(${fmtEUR(d.prix)} + ${fmtEUR(d.travaux)}) × (1 + ${fmtPct(d.inflationRevente)})^t — frais notaire/dossier/agence sont sunk costs, exclus.</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Valeur nette projet(t) = Revente(t) − Capital restant dû(t)</div>
+      <div class="res">À t=0 : ${fmtEUR(d.prix + d.travaux)} − ${fmtEUR(montantEmprunte)} = ${fmtEUR(d.prix + d.travaux - montantEmprunte)} (apport effectif net des frais d'entrée)</div>
     </div>
 
     <p class="muted">Calcul théorique. Pas de fiscalité immobilière modélisée. Pas d'inflation sur les charges.</p>
