@@ -30,7 +30,6 @@ function getInputs() {
     loyer: val('loyer'),
     chargesLoc: val('charges-loc'),
     rendement: val('rendement') / 100,
-    cashflowRate: val('cashflow-rate') / 100,
     horizon: val('horizon'),
     inflGlobale: val('inflation-globale') / 100,
     inflAvance: document.getElementById('inflation-avance')?.checked || false,
@@ -65,59 +64,16 @@ function capitalRestantDu(K, tauxAnnuel, dureeAnnees, anneesEcoulees) {
   return (K * (Math.pow(1 + i, n) - Math.pow(1 + i, k))) / (Math.pow(1 + i, n) - 1);
 }
 
-// Future value of a cashflow stream at year T, compounded at `rate`.
-// cashflows[s] is the cashflow at end of year s (cashflows[0] at t=0).
-function computeFV(cashflows, rate, T) {
-  let sum = 0;
-  for (let s = 0; s < cashflows.length; s++) {
-    sum += cashflows[s] * Math.pow(1 + rate, T - s);
-  }
-  return sum;
-}
-
-// IRR via bisection. Returns NaN if no sign change (no real IRR) or single cashflow.
-function computeIRR(cashflows, maxIter = 100, tol = 1e-7) {
-  if (cashflows.length < 2) return NaN;
-  const hasPos = cashflows.some(cf => cf > 0);
-  const hasNeg = cashflows.some(cf => cf < 0);
-  if (!hasPos || !hasNeg) return NaN;
-
-  const npv = rate => {
-    let sum = 0;
-    for (let s = 0; s < cashflows.length; s++) {
-      sum += cashflows[s] / Math.pow(1 + rate, s);
-    }
-    return sum;
-  };
-
-  let lo = -0.999, hi = 10;
-  let npvLo = npv(lo), npvHi = npv(hi);
-  if (npvLo * npvHi > 0) return NaN;
-
-  for (let i = 0; i < maxIter; i++) {
-    const mid = (lo + hi) / 2;
-    const npvMid = npv(mid);
-    if (Math.abs(npvMid) < tol) return mid;
-    if (npvMid * npvLo < 0) { hi = mid; }
-    else { lo = mid; npvLo = npvMid; }
-  }
-  return (lo + hi) / 2;
-}
-
 function computeScenarios(d) {
   const capitalEmprunte = d.prix + d.notaire + d.travaux - d.apport;
   const mensualite = computeMensualite(capitalEmprunte, d.tauxCredit, d.dureeCredit);
 
   const TAUX_PFU = 0.30;
   const annees = [];
-  let potAchat = 0; // épargne secondaire côté acheteur (table apples-to-apples)
-  let potLoc = d.apport; // même cash que l'acheteur sort au signing
+  let potAchat = 0; // épargne secondaire côté acheteur
+  let potLoc = d.apport; // même cash que l'acheteur sort au signing (apples-to-apples)
   let capitalAchat = 0;
   let capitalLoc = d.apport;
-
-  // Stream de cashflows acheteur (perspective investisseur, vs locataire baseline)
-  // baseCF[0] = -apport au signing ; baseCF[s≥1] = -(depenseAchat(s-1) - depenseLoc(s-1))
-  const baseCF = [-d.apport];
 
   const ifLoyer = d.inflAvance ? d.inflLoyer : d.inflGlobale;
   const ifCharges = d.inflAvance ? d.inflCharges : d.inflGlobale;
@@ -149,14 +105,6 @@ function computeScenarios(d) {
     const patrimoineAchat = (valeurBien - crd) + potAchatNet;
     const patrimoineLoc = potLocNet;
 
-    // Perspective investisseur acheteur : montant récupéré cumulé + TRI si revente à t
-    // saleStream = baseCF avec le dernier élément augmenté du cash de vente
-    const cashFromSale = valeurBien - crd;
-    const saleStream = baseCF.slice();
-    saleStream[saleStream.length - 1] = saleStream[saleStream.length - 1] + cashFromSale;
-    const montantRecupere = computeFV(saleStream, d.cashflowRate, t);
-    const rendementAnnualise = computeIRR(saleStream);
-
     annees.push({
       annee: t,
       patrimoineAchat,
@@ -174,19 +122,12 @@ function computeScenarios(d) {
       capitalLoc,
       taxAchat,
       taxLoc,
-      montantRecupere,
-      rendementAnnualise,
-      cashFromSale,
     });
 
     if (t >= d.horizon) break; // pas de projection après la dernière année
 
     // Placement de la différence de cash-flow du côté qui économise
     const diffDepense = depenseAchatT - depenseLocT;
-
-    // Append au stream investisseur acheteur pour les itérations suivantes
-    baseCF.push(-diffDepense);
-
     if (diffDepense > 0) {
       // Locataire dépense moins → il place la différence
       capitalLoc += diffDepense;
@@ -226,12 +167,16 @@ function renderChart(annees) {
   if (chartInstance) chartInstance.destroy();
 
   const labels = annees.map(a => 'A' + a.annee);
-  const dataMontant = annees.map(a => Math.round(a.montantRecupere));
-  const dataRendement = annees.map(a => Number.isFinite(a.rendementAnnualise) ? a.rendementAnnualise : null);
+  const dataAchat = annees.map(a => Math.round(a.patrimoineAchat));
+  const dataLoc = annees.map(a => Math.round(a.patrimoineLoc));
+  const dataRevente = annees.map(a => Math.round(a.valeurBien));
+  const dataCRD = annees.map(a => Math.round(a.crd));
 
   const rootStyle = getComputedStyle(document.documentElement);
   const accent = rootStyle.getPropertyValue('--accent').trim() || '#f0b429';
   const cyan = rootStyle.getPropertyValue('--cyan').trim() || '#22d3ee';
+  const success = rootStyle.getPropertyValue('--success').trim() || '#34d399';
+  const danger = rootStyle.getPropertyValue('--danger').trim() || '#f87171';
   const textMuted = rootStyle.getPropertyValue('--text-muted').trim() || '#9ca3af';
   const border = rootStyle.getPropertyValue('--border').trim() || '#21262d';
 
@@ -241,9 +186,8 @@ function renderChart(annees) {
       labels,
       datasets: [
         {
-          label: 'Montant récupéré cumulé (€)',
-          data: dataMontant,
-          yAxisID: 'yMoney',
+          label: 'Patrimoine achat',
+          data: dataAchat,
           borderColor: accent,
           backgroundColor: accent,
           borderWidth: 3,
@@ -253,9 +197,8 @@ function renderChart(annees) {
           pointHoverRadius: 6,
         },
         {
-          label: 'Rendement annualisé (TRI)',
-          data: dataRendement,
-          yAxisID: 'yPercent',
+          label: 'Patrimoine location + placement',
+          data: dataLoc,
           borderColor: cyan,
           backgroundColor: cyan,
           borderWidth: 3,
@@ -263,7 +206,28 @@ function renderChart(annees) {
           tension: 0.3,
           pointRadius: 3,
           pointHoverRadius: 6,
-          spanGaps: true,
+        },
+        {
+          label: 'Valeur de revente',
+          data: dataRevente,
+          borderColor: success,
+          backgroundColor: success,
+          borderWidth: 2,
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+        },
+        {
+          label: 'Capital restant dû',
+          data: dataCRD,
+          borderColor: danger,
+          backgroundColor: danger,
+          borderWidth: 2,
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          pointHoverRadius: 5,
         },
       ],
     },
@@ -282,13 +246,7 @@ function renderChart(annees) {
           borderColor: border,
           borderWidth: 1,
           callbacks: {
-            label: ctx => {
-              const v = ctx.parsed.y;
-              if (v == null) return `${ctx.dataset.label}: —`;
-              return ctx.dataset.yAxisID === 'yPercent'
-                ? `${ctx.dataset.label}: ${fmtPct(v)}`
-                : `${ctx.dataset.label}: ${fmtEUR(v)}`;
-            },
+            label: ctx => `${ctx.dataset.label}: ${fmtEUR(ctx.parsed.y)}`,
           },
         },
       },
@@ -297,19 +255,12 @@ function renderChart(annees) {
           grid: { color: border },
           ticks: { color: textMuted, maxTicksLimit: 12 },
         },
-        yMoney: {
-          type: 'linear',
-          position: 'left',
+        y: {
           grid: { color: border },
-          ticks: { color: accent, callback: v => fmtEUR(v) },
-          title: { display: true, text: 'Montant récupéré (€)', color: accent },
-        },
-        yPercent: {
-          type: 'linear',
-          position: 'right',
-          grid: { drawOnChartArea: false },
-          ticks: { color: cyan, callback: v => fmtPct(v) },
-          title: { display: true, text: 'Rendement annualisé', color: cyan },
+          ticks: {
+            color: textMuted,
+            callback: v => fmtEUR(v),
+          },
         },
       },
     },
@@ -387,7 +338,7 @@ function buildModal(d, res) {
         : `Globale ${fmtPct(d.inflGlobale)} appliquée aux 4 variables`}</div>
     </div>
 
-    <h4 style="margin:16px 0 8px; color:var(--accent);">Valeur de revente & CRD</h4>
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine achat</h4>
     <div class="detail-step">
       <div class="expr">Valeur de revente(t) = (Prix + Travaux) × (1 + plus-value)^t</div>
       <div class="res">(${fmtEUR(d.prix)} + ${fmtEUR(d.travaux)}) × (1 + ${fmtPct(d.plusValue)})^t — frais de notaire (${fmtEUR(d.notaire)}) sont sunk costs, exclus.</div>
@@ -397,44 +348,34 @@ function buildModal(d, res) {
       <div class="res">Formule d'amortissement standard sur ${d.dureeCredit} ans à ${fmtPct(d.tauxCredit)}.</div>
     </div>
     <div class="detail-step">
-      <div class="expr">Cash de vente(t) = Revente(t) − CRD(t)</div>
+      <div class="expr">Valeur nette du bien(t) = Revente(t) − CRD(t)</div>
       <div class="res">À t=0 : ${fmtEUR(d.prix + d.travaux)} − ${fmtEUR(capitalEmprunte)} = ${fmtEUR(d.prix + d.travaux - capitalEmprunte)} (apport − notaire − travaux financés).</div>
     </div>
-
-    <h4 style="margin:16px 0 8px; color:var(--accent);">Perspective investisseur — chart principal</h4>
     <div class="detail-step">
-      <div class="expr">Capital initialement bloqué = Apport</div>
-      <div class="res">${fmtEUR(d.apport)} (le notaire n'est pas du capital récupérable mais une dépense)</div>
-    </div>
-    <div class="detail-step">
-      <div class="expr">Stream de cashflows pour une revente à l'année T</div>
-      <div class="res">[−apport, −diff(0), −diff(1), …, −diff(T−1) + cashVente(T)]<br>où diff(s) = dépenseAchat(s) − dépenseLoc(s) ; un diff positif = acheteur paie plus que locataire = cashflow négatif côté acheteur.</div>
-    </div>
-    <div class="detail-step">
-      <div class="expr">Montant récupéré cumulé(T) = FV du stream à l'année T au taux ${fmtPct(d.cashflowRate)}</div>
-      <div class="res">Σ CF(s) × (1 + ${fmtPct(d.cashflowRate)})^(T−s) — composé pour refléter le coût d'opportunité.</div>
-    </div>
-    <div class="detail-step">
-      <div class="expr">Rendement annualisé(T) = TRI/IRR résolu sur le stream (NPV = 0)</div>
-      <div class="res">Indépendant du taux de capitalisation — c'est le taux que retourne réellement l'investissement, compte tenu de tous les cashflows.</div>
+      <div class="expr">Patrimoine net achat = Valeur nette du bien + épargne placée</div>
+      <div class="res">Si l'acheteur dépense moins que le locataire (après crédit), la différence est placée au rendement ${fmtPct(d.rendement)}.</div>
     </div>
 
-    <h4 style="margin:16px 0 8px; color:var(--accent);">Tableau (apples-to-apples vs locataire)</h4>
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine location + placement</h4>
     <div class="detail-step">
-      <div class="expr">Patrimoine achat = (Revente − CRD) + pot acheteur ; Patrimoine loc = pot locataire</div>
-      <div class="res">Le locataire place apport + économies au rendement ${fmtPct(d.rendement)}. Vision "richesse nette" complémentaire au chart investisseur.</div>
+      <div class="expr">Capital initial placé = Apport (même cash que l'acheteur sort au signing)</div>
+      <div class="res">${fmtEUR(d.apport)}</div>
     </div>
-    <h4 style="margin:16px 0 8px; color:var(--accent);">Fiscalité du placement (table uniquement)</h4>
+    <div class="detail-step">
+      <div class="expr">Chaque année : on ajoute l'économie au pot du côté gagnant, puis on capitalise</div>
+      <div class="res">Pot(t) = (Pot(t-1) + économie annuelle) × (1 + ${fmtPct(d.rendement)})</div>
+    </div>
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Fiscalité du placement</h4>
     <div class="detail-step">
       <div class="expr">${d.flatTaxe ? 'Flat tax (PFU 30 %) sur les plus-values cumulées des deux pots' : 'Aucune fiscalité appliquée sur les placements'}</div>
       <div class="res">${d.flatTaxe ? 'Tax(t) = max(0, pot(t) − capital_investi(t)) × 30 %' : '—'}</div>
     </div>
-    <p class="muted">Le TRI ne dépend pas du taux choisi ; le montant récupéré, oui (il représente la valeur de l'investissement composée à ce taux). Pas de fiscalité immobilière ni de frais de revente modélisés.</p>
+    <p class="muted">Calcul théorique avant fiscalité immobilière et frais de revente. Le crédit et le placement sont supposés constants. La différence de cash-flow est placée du côté qui dépense le moins.</p>
   `;
 }
 
 function snapshotRawInputs() {
-  const ids = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','cashflow-rate','horizon','inflation-globale','inflation-avance','infl-loyer','infl-charges','infl-taxe','infl-entretien','flat-taxe'];
+  const ids = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','horizon','inflation-globale','inflation-avance','infl-loyer','infl-charges','infl-taxe','infl-entretien','flat-taxe'];
   const out = {};
   for (const id of ids) {
     const el = document.getElementById(id);
@@ -505,7 +446,7 @@ function init() {
   });
 
   // Auto-recalc on change (blur or spinner — avoids redraw on every keystroke)
-  const inputIds = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','cashflow-rate','horizon','inflation-globale','infl-loyer','infl-charges','infl-taxe','infl-entretien','flat-taxe'];
+  const inputIds = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','horizon','inflation-globale','infl-loyer','infl-charges','infl-taxe','infl-entretien','flat-taxe'];
   inputIds.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;

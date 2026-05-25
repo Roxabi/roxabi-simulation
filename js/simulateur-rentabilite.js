@@ -52,8 +52,9 @@ function getInputs() {
   const vacancePct = vacanceUnit === 'mois' ? vacance / 12 : vacance;
   const augmentationLoyer = val('augmentation-loyer') / 100;
 
-  // Revente
+  // Revente + investisseur
   const inflationRevente = val('inflation-revente') / 100;
+  const cashflowRate = val('cashflow-rate') / 100;
 
   return {
     prix, notairePct, notaire, agencePct, agence,
@@ -74,7 +75,46 @@ function getInputs() {
     vacancePct,
     augmentationLoyer,
     inflationRevente,
+    cashflowRate,
   };
+}
+
+// Future value of a cashflow stream at year T, compounded at `rate`.
+function computeFV(cashflows, rate, T) {
+  let sum = 0;
+  for (let s = 0; s < cashflows.length; s++) {
+    sum += cashflows[s] * Math.pow(1 + rate, T - s);
+  }
+  return sum;
+}
+
+// IRR via bisection. Returns NaN if no sign change or single cashflow.
+function computeIRR(cashflows, maxIter = 100, tol = 1e-7) {
+  if (cashflows.length < 2) return NaN;
+  const hasPos = cashflows.some(cf => cf > 0);
+  const hasNeg = cashflows.some(cf => cf < 0);
+  if (!hasPos || !hasNeg) return NaN;
+
+  const npv = rate => {
+    let sum = 0;
+    for (let s = 0; s < cashflows.length; s++) {
+      sum += cashflows[s] / Math.pow(1 + rate, s);
+    }
+    return sum;
+  };
+
+  let lo = -0.999, hi = 10;
+  let npvLo = npv(lo), npvHi = npv(hi);
+  if (npvLo * npvHi > 0) return NaN;
+
+  for (let i = 0; i < maxIter; i++) {
+    const mid = (lo + hi) / 2;
+    const npvMid = npv(mid);
+    if (Math.abs(npvMid) < tol) return mid;
+    if (npvMid * npvLo < 0) { hi = mid; }
+    else { lo = mid; npvLo = npvMid; }
+  }
+  return (lo + hi) / 2;
 }
 
 function computeMensualite(K, tauxAnnuel, dureeMois) {
@@ -135,7 +175,9 @@ function computeRentabilite(d) {
 
   const coutTotalPret = K0 + totalInterets + totalAssurance + d.fraisDossier + d.garantie;
 
-  // Projection annuelle
+  // Projection annuelle + TRI mono-projet
+  // baseCF[0] = -apport (cash out au signing) ; baseCF[s≥1] = cashflow net annuel de l'année [s-1, s)
+  const baseCF = [-d.apport];
   const annees = [];
   for (let t = 0; t <= HORIZON; t++) {
     const loyerMensuel = d.loyer * Math.pow(1 + d.augmentationLoyer, t);
@@ -145,7 +187,7 @@ function computeRentabilite(d) {
     const chargesAnnuelles = d.chargesAnnuelles; // simplifié : pas d'inflation charges pour l'instant
     const chargesMensuelles = chargesAnnuelles / 12;
 
-    // Mensualité moyenne de l'année t
+    // Mensualité moyenne de l'année t (pour affichage)
     const startMois = t * 12;
     const endMois = Math.min(startMois + 12, n);
     let mensualiteMoyenne = 0;
@@ -158,6 +200,13 @@ function computeRentabilite(d) {
 
     const cashFlowMensuel = loyerMensuel * (1 - d.vacancePct) - chargesMensuelles - mensualiteMoyenne;
 
+    // Cashflow annuel exact (somme des 12 mois — gère propre la transition fin de crédit)
+    let mensualiteSumYear = 0;
+    for (let m = startMois; m < startMois + 12; m++) {
+      mensualiteSumYear += m < moisData.length ? moisData[m].mensualite : 0;
+    }
+    const cashFlowAnnuel = loyerEffectifAnnuel - chargesAnnuelles - mensualiteSumYear;
+
     // Revente basée sur (prix + travaux) — les frais (notaire, dossier, agence) sont sunk costs
     const revente = (d.prix + d.travaux) * Math.pow(1 + d.inflationRevente, t);
 
@@ -168,6 +217,14 @@ function computeRentabilite(d) {
       ? K0
       : (moisData[t * 12 - 1]?.capital ?? 0);
 
+    // Perspective investisseur : si revente à l'année t
+    // saleStream = baseCF avec le dernier élément augmenté du cash de vente (revente - CRD)
+    const cashFromSale = revente - crd;
+    const saleStream = baseCF.slice();
+    saleStream[saleStream.length - 1] = saleStream[saleStream.length - 1] + cashFromSale;
+    const montantRecupere = computeFV(saleStream, d.cashflowRate, t);
+    const rendementAnnualise = computeIRR(saleStream);
+
     annees.push({
       annee: t,
       loyerMensuel,
@@ -177,11 +234,18 @@ function computeRentabilite(d) {
       chargesMensuelles,
       mensualiteMoyenne,
       cashFlowMensuel,
+      cashFlowAnnuel,
       revente,
       rentabiliteBrute,
       rentabiliteNette,
       crd,
+      cashFromSale,
+      montantRecupere,
+      rendementAnnualise,
     });
+
+    // Append cashflow année [t, t+1) au stream pour les itérations suivantes
+    if (t < HORIZON) baseCF.push(cashFlowAnnuel);
   }
 
   return {
@@ -221,14 +285,12 @@ function renderChart(annees) {
   if (chartInstance) chartInstance.destroy();
 
   const labels = annees.map(a => 'A' + a.annee);
-  const dataRevente = annees.map(a => Math.round(a.revente));
-  const dataCRD = annees.map(a => Math.round(a.crd));
-  const dataNette = annees.map(a => Math.round(a.revente - a.crd));
+  const dataMontant = annees.map(a => Math.round(a.montantRecupere));
+  const dataRendement = annees.map(a => Number.isFinite(a.rendementAnnualise) ? a.rendementAnnualise : null);
 
   const rootStyle = getComputedStyle(document.documentElement);
   const accent = rootStyle.getPropertyValue('--accent').trim() || '#f0b429';
   const cyan = rootStyle.getPropertyValue('--cyan').trim() || '#22d3ee';
-  const danger = '#ef4444';
   const textMuted = rootStyle.getPropertyValue('--text-muted').trim() || '#9ca3af';
   const border = rootStyle.getPropertyValue('--border').trim() || '#21262d';
 
@@ -238,30 +300,21 @@ function renderChart(annees) {
       labels,
       datasets: [
         {
-          label: 'Valeur de revente',
-          data: dataRevente,
+          label: 'Montant récupéré cumulé (€)',
+          data: dataMontant,
+          yAxisID: 'yMoney',
           borderColor: accent,
           backgroundColor: accent,
-          borderWidth: 2,
+          borderWidth: 3,
           fill: false,
           tension: 0.3,
-          pointRadius: 2,
-          pointHoverRadius: 5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
         },
         {
-          label: 'Capital restant dû',
-          data: dataCRD,
-          borderColor: danger,
-          backgroundColor: danger,
-          borderWidth: 2,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 2,
-          pointHoverRadius: 5,
-        },
-        {
-          label: 'Valeur nette projet (revente − dette)',
-          data: dataNette,
+          label: 'Rendement annualisé (TRI)',
+          data: dataRendement,
+          yAxisID: 'yPercent',
           borderColor: cyan,
           backgroundColor: cyan,
           borderWidth: 3,
@@ -269,6 +322,7 @@ function renderChart(annees) {
           tension: 0.3,
           pointRadius: 3,
           pointHoverRadius: 6,
+          spanGaps: true,
         },
       ],
     },
@@ -287,7 +341,13 @@ function renderChart(annees) {
           borderColor: border,
           borderWidth: 1,
           callbacks: {
-            label: ctx => `${ctx.dataset.label}: ${fmtEUR(ctx.parsed.y)}`,
+            label: ctx => {
+              const v = ctx.parsed.y;
+              if (v == null) return `${ctx.dataset.label}: —`;
+              return ctx.dataset.yAxisID === 'yPercent'
+                ? `${ctx.dataset.label}: ${fmtPct(v)}`
+                : `${ctx.dataset.label}: ${fmtEUR(v)}`;
+            },
           },
         },
       },
@@ -296,12 +356,19 @@ function renderChart(annees) {
           grid: { color: border },
           ticks: { color: textMuted, maxTicksLimit: 12 },
         },
-        y: {
+        yMoney: {
+          type: 'linear',
+          position: 'left',
           grid: { color: border },
-          ticks: {
-            color: textMuted,
-            callback: v => fmtEUR(v),
-          },
+          ticks: { color: accent, callback: v => fmtEUR(v) },
+          title: { display: true, text: 'Montant récupéré (€)', color: accent },
+        },
+        yPercent: {
+          type: 'linear',
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: cyan, callback: v => fmtPct(v) },
+          title: { display: true, text: 'Rendement annualisé', color: cyan },
         },
       },
     },
@@ -401,17 +468,35 @@ function buildModal(d, res) {
       <div class="res">${fmtEUR(d.loyer * (1 - d.vacancePct))} − ${fmtEUR(chargesMensuelles)} − ${fmtEUR(mensualite)} = ${fmtEUR(cashFlowMensuel)}</div>
     </div>
 
-    <h4 style="margin:16px 0 8px; color:var(--accent);">Revente & valeur projet</h4>
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Revente</h4>
     <div class="detail-step">
       <div class="expr">Valeur de revente(t) = (Prix + Travaux) × (1 + inflation)^t</div>
       <div class="res">(${fmtEUR(d.prix)} + ${fmtEUR(d.travaux)}) × (1 + ${fmtPct(d.inflationRevente)})^t — frais notaire/dossier/agence sont sunk costs, exclus.</div>
     </div>
     <div class="detail-step">
-      <div class="expr">Valeur nette projet(t) = Revente(t) − Capital restant dû(t)</div>
-      <div class="res">À t=0 : ${fmtEUR(d.prix + d.travaux)} − ${fmtEUR(montantEmprunte)} = ${fmtEUR(d.prix + d.travaux - montantEmprunte)} (apport effectif net des frais d'entrée)</div>
+      <div class="expr">Cash de vente(t) = Revente(t) − CRD(t)</div>
+      <div class="res">Net empoché à la revente, après remboursement du capital restant dû.</div>
     </div>
 
-    <p class="muted">Calcul théorique. Pas de fiscalité immobilière modélisée. Pas d'inflation sur les charges.</p>
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Performance investisseur (chart)</h4>
+    <div class="detail-step">
+      <div class="expr">Capital initialement bloqué = Apport</div>
+      <div class="res">${fmtEUR(d.apport)} (les frais notaire/dossier/agence sont financés via le crédit dans ce modèle ou sunk costs — seul l'apport est récupérable).</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Stream de cashflows mono-projet pour une revente à l'année T</div>
+      <div class="res">[−apport, CF(0→1), CF(1→2), …, CF(T−1→T) + cashVente(T)]<br>où CF(s→s+1) = loyer effectif − charges − mensualités (somme exacte des 12 mois, inclut la transition fin de crédit).</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Montant récupéré cumulé(T) = FV du stream à l'année T au taux ${fmtPct(d.cashflowRate)}</div>
+      <div class="res">Σ CF(s) × (1 + ${fmtPct(d.cashflowRate)})^(T−s) — les cashflows positifs sont composés à ce taux (réinvestissement supposé), les négatifs reflètent un coût d'opportunité.</div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Rendement annualisé(T) = TRI/IRR résolu sur le stream (NPV = 0)</div>
+      <div class="res">Le TRI est indépendant du taux de capitalisation : c'est le rendement intrinsèque du projet locatif.</div>
+    </div>
+
+    <p class="muted">Calcul théorique mono-projet. Pas de fiscalité (revenus locatifs / plus-value immobilière) modélisée. Pas d'inflation sur les charges. Frais de revente (agence, PV) non déduits.</p>
   `;
 }
 
@@ -430,7 +515,7 @@ function updateLiveDisplays() {
 
 function snapshotRawInputs() {
   const ids = [
-    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente',
+    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente','cashflow-rate',
     'loyer','vacance','vacance-unit','augmentation-loyer',
     'charge-copro','unit-copro','charge-pno','unit-pno','charge-compta','unit-compta',
     'charge-cga','unit-cga','charge-banque','unit-banque','charge-eau','unit-eau',
@@ -495,7 +580,7 @@ function init() {
 
   // Auto-recalc on change
   const inputIds = [
-    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente',
+    'prix','notaire-pct','agence-pct','travaux','meubles','superficie','inflation-revente','cashflow-rate',
     'loyer','vacance','vacance-unit','augmentation-loyer',
     'charge-copro','charge-pno','charge-compta','charge-cga','charge-banque',
     'charge-eau','charge-elec','charge-gaz','charge-internet','charge-cfe',
