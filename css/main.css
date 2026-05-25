@@ -14,6 +14,8 @@
   --accent-dim:   #78460d;
   --accent-glow:  rgba(240,180,41,0.2);
   --danger:       #f87171;
+  --success:      #34d399;
+  --cyan:         #22d3ee;
   --radius:       8px;
   --font:         ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
@@ -33,6 +35,8 @@
   --accent-dim:   #fef3c7;
   --accent-glow:  rgba(217,119,6,0.15);
   --danger:       #dc2626;
+  --success:      #16a34a;
+  --cyan:         #0891b2;
 }
 
 @media (prefers-color-scheme: light) {
@@ -51,6 +55,8 @@
     --accent-dim:   #fef3c7;
     --accent-glow:  rgba(217,119,6,0.15);
     --danger:       #dc2626;
+    --success:      #16a34a;
+    --cyan:         #0891b2;
   }
 }
 

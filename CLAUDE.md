@@ -87,8 +87,10 @@ npx wrangler pages deploy . --project-name=invest-sim --branch=main --commit-dir
 ## Notes métier — Comparateur immobilier
 
 - **Patrimoine achat(t)** = `(Prix + Travaux) × (1 + plus-value)^t - CRD(t) + potAcheteur(t)`
-- **Patrimoine loc(t)** = `potLoc(t)` (apport + notaire + travaux initial + épargnes accumulées)
+- **Patrimoine loc(t)** = `potLoc(t)` (apport initial + épargnes accumulées — apples-to-apples avec le cash que l'acheteur sort au signing)
 - **CRD** : formule d'amortissement standard, capital restant dû déduit de la valeur de revente.
 - **Différence de cash-flow** : `depenseAchat - depenseLoc` → placée du côté qui **dépense le moins**, au rendement défini.
+- **Inflation** : loyer, charges, taxe foncière et entretien indexés chaque année. Taux global ou par paramètre (mode avancé). Mensualité, plus-value et rendement placement indépendants.
+- **Fiscalité placement** : case "Flat tax PFU 30 %" applique 30 % sur `gains(t) = max(0, pot(t) − capital_investi(t))` côté locataire ET acheteur. Tooltip "?" rappelle PEA / AV / donation / PER comme dispositifs de purge.
 - **Frais de notaire** : auto-calculés (% du prix) avec affichage live du montant €.
-- Crédit et placement supposés constants sur l'horizon. Pas de fiscalité ni inflation modélisées.
+- Crédit à taux fixe sur la durée du prêt — mensualités nulles au-delà de `dureeCredit`. Rendement de placement constant sur l'horizon. Pas de fiscalité ni inflation modélisées.

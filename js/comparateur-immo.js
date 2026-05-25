@@ -1,4 +1,10 @@
 import { fmtEUR, fmtPct } from './format.js';
+import { setupModal } from './modal.js';
+import { setupTooltips } from './info-tooltip.js';
+import { createStorage } from './storage.js';
+
+const storage = createStorage('immo', 1);
+const SAVED_ID = 'current';
 
 let chartInstance = null;
 
@@ -25,6 +31,13 @@ function getInputs() {
     chargesLoc: val('charges-loc'),
     rendement: val('rendement') / 100,
     horizon: val('horizon'),
+    inflGlobale: val('inflation-globale') / 100,
+    inflAvance: document.getElementById('inflation-avance')?.checked || false,
+    inflLoyer: val('infl-loyer') / 100,
+    inflCharges: val('infl-charges') / 100,
+    inflTaxe: val('infl-taxe') / 100,
+    inflEntretien: val('infl-entretien') / 100,
+    flatTaxe: document.getElementById('flat-taxe')?.checked || false,
   };
 }
 
@@ -54,21 +67,43 @@ function capitalRestantDu(K, tauxAnnuel, dureeAnnees, anneesEcoulees) {
 function computeScenarios(d) {
   const capitalEmprunte = d.prix + d.notaire + d.travaux - d.apport;
   const mensualite = computeMensualite(capitalEmprunte, d.tauxCredit, d.dureeCredit);
-  const depenseAchatAnnuelle = mensualite * 12 + d.entretien + d.taxe;
-  const depenseLocAnnuelle = d.loyer * 12 + d.chargesLoc * 12;
 
+  const TAUX_PFU = 0.30;
   const annees = [];
   let potAchat = 0; // épargne secondaire côté acheteur
-  let potLoc = d.apport + d.notaire + d.travaux; // capital initial côté locataire
+  let potLoc = d.apport; // même cash que l'acheteur sort au signing (apples-to-apples)
+  let capitalAchat = 0;
+  let capitalLoc = d.apport;
+
+  const ifLoyer = d.inflAvance ? d.inflLoyer : d.inflGlobale;
+  const ifCharges = d.inflAvance ? d.inflCharges : d.inflGlobale;
+  const ifTaxe = d.inflAvance ? d.inflTaxe : d.inflGlobale;
+  const ifEntretien = d.inflAvance ? d.inflEntretien : d.inflGlobale;
 
   for (let t = 0; t <= d.horizon; t++) {
+    const mensualiteT = t < d.dureeCredit ? mensualite : 0;
+    const loyerT = d.loyer * Math.pow(1 + ifLoyer, t);
+    const chargesT = d.chargesLoc * Math.pow(1 + ifCharges, t);
+    const taxeT = d.taxe * Math.pow(1 + ifTaxe, t);
+    const entretienT = d.entretien * Math.pow(1 + ifEntretien, t);
+
+    const depenseAchatT = mensualiteT * 12 + entretienT + taxeT;
+    const depenseLocT = loyerT * 12 + chargesT * 12;
+
     // Achat — valeur nette du bien moins CRD
     const valeurBien = (d.prix + d.travaux) * Math.pow(1 + d.plusValue, t);
     const crd = capitalRestantDu(capitalEmprunte, d.tauxCredit, d.dureeCredit, t);
-    const patrimoineAchat = (valeurBien - crd) + potAchat;
 
-    // Location — pot de placement
-    const patrimoineLoc = potLoc;
+    // Flat tax sur les gains des pots de placement (pas sur la plus-value immobilière)
+    const gainsAchat = Math.max(0, potAchat - capitalAchat);
+    const gainsLoc = Math.max(0, potLoc - capitalLoc);
+    const taxAchat = d.flatTaxe ? gainsAchat * TAUX_PFU : 0;
+    const taxLoc = d.flatTaxe ? gainsLoc * TAUX_PFU : 0;
+    const potAchatNet = potAchat - taxAchat;
+    const potLocNet = potLoc - taxLoc;
+
+    const patrimoineAchat = (valeurBien - crd) + potAchatNet;
+    const patrimoineLoc = potLocNet;
 
     annees.push({
       annee: t,
@@ -76,25 +111,31 @@ function computeScenarios(d) {
       patrimoineLoc,
       diff: patrimoineAchat - patrimoineLoc,
       meilleure: patrimoineAchat >= patrimoineLoc ? 'achat' : 'location',
-      mensualite,
-      depenseAchatAnnuelle,
-      depenseLocAnnuelle,
+      mensualite: mensualiteT,
+      depenseAchatAnnuelle: depenseAchatT,
+      depenseLocAnnuelle: depenseLocT,
       valeurBien,
       crd,
       potAchat,
       potLoc,
+      capitalAchat,
+      capitalLoc,
+      taxAchat,
+      taxLoc,
     });
 
     if (t >= d.horizon) break; // pas de projection après la dernière année
 
     // Placement de la différence de cash-flow du côté qui économise
-    const diffDepense = depenseAchatAnnuelle - depenseLocAnnuelle;
+    const diffDepense = depenseAchatT - depenseLocT;
     if (diffDepense > 0) {
       // Locataire dépense moins → il place la différence
+      capitalLoc += diffDepense;
       potLoc = (potLoc + diffDepense) * (1 + d.rendement);
       potAchat = potAchat * (1 + d.rendement);
     } else if (diffDepense < 0) {
       // Acheteur dépense moins → il place la différence
+      capitalAchat += Math.abs(diffDepense);
       potAchat = (potAchat + Math.abs(diffDepense)) * (1 + d.rendement);
       potLoc = potLoc * (1 + d.rendement);
     } else {
@@ -103,10 +144,22 @@ function computeScenarios(d) {
     }
   }
 
-  const epargneAnnuelle = Math.abs(depenseAchatAnnuelle - depenseLocAnnuelle);
-  const gagnantEconomie = depenseAchatAnnuelle < depenseLocAnnuelle ? 'achat' : 'location';
+  const depenseAchatAnnuelle0 = mensualite * 12 + d.entretien + d.taxe;
+  const depenseLocAnnuelle0 = d.loyer * 12 + d.chargesLoc * 12;
+  const epargneAnnuelle = Math.abs(depenseAchatAnnuelle0 - depenseLocAnnuelle0);
+  const gagnantEconomie = depenseAchatAnnuelle0 < depenseLocAnnuelle0 ? 'achat' : 'location';
 
-  return { annees, capitalEmprunte, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneAnnuelle, gagnantEconomie };
+  return {
+    annees,
+    capitalEmprunte,
+    mensualite,
+    depenseAchatAnnuelle: depenseAchatAnnuelle0,
+    depenseLocAnnuelle: depenseLocAnnuelle0,
+    epargneAnnuelle,
+    gagnantEconomie,
+    inflRates: { ifLoyer, ifCharges, ifTaxe, ifEntretien },
+    flatTaxe: d.flatTaxe,
+  };
 }
 
 function renderChart(annees) {
@@ -246,6 +299,16 @@ function buildModal(d, res) {
       <div class="expr">Différence de cash-flow — ${diffLabel}</div>
       <div class="res">${fmtEUR(Math.abs(depenseAchatAnnuelle - depenseLocAnnuelle))} / an → placé côté ${gagnantEconomie === 'achat' ? 'acheteur' : 'locataire'}</div>
     </div>
+    <div class="detail-step">
+      <div class="expr">Note : après ${d.dureeCredit} ans, la mensualité s&apos;arrête. Le cash-flow acheteur se réduit à entretien + taxe foncière.</div>
+      <div class="res"></div>
+    </div>
+    <div class="detail-step">
+      <div class="expr">Indexation annuelle (loyer / charges / taxe / entretien)</div>
+      <div class="res">${d.inflAvance
+        ? `Loyer ${fmtPct(res.inflRates.ifLoyer)} · Charges ${fmtPct(res.inflRates.ifCharges)} · Taxe ${fmtPct(res.inflRates.ifTaxe)} · Entretien ${fmtPct(res.inflRates.ifEntretien)}`
+        : `Globale ${fmtPct(d.inflGlobale)} appliquée aux 4 variables`}</div>
+    </div>
 
     <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine achat</h4>
     <div class="detail-step">
@@ -263,25 +326,42 @@ function buildModal(d, res) {
 
     <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine location + placement</h4>
     <div class="detail-step">
-      <div class="expr">Capital initial placé = Apport + Notaire + Travaux</div>
-      <div class="res">${fmtEUR(d.apport)} + ${fmtEUR(d.notaire)} + ${fmtEUR(d.travaux)} = ${fmtEUR(d.apport + d.notaire + d.travaux)}</div>
+      <div class="expr">Capital initial placé = Apport (même cash que l'acheteur sort au signing)</div>
+      <div class="res">${fmtEUR(d.apport)}</div>
     </div>
     <div class="detail-step">
       <div class="expr">Chaque année : on ajoute l'économie au pot du côté gagnant, puis on capitalise</div>
       <div class="res">Pot(t) = (Pot(t-1) + économie annuelle) × (1 + ${fmtPct(d.rendement)})</div>
     </div>
+    <h4 style="margin:16px 0 8px; color:var(--accent);">Fiscalité du placement</h4>
+    <div class="detail-step">
+      <div class="expr">${d.flatTaxe ? 'Flat tax (PFU 30 %) sur les plus-values cumulées des deux pots' : 'Aucune fiscalité appliquée sur les placements'}</div>
+      <div class="res">${d.flatTaxe ? 'Tax(t) = max(0, pot(t) − capital_investi(t)) × 30 %' : '—'}</div>
+    </div>
     <p class="muted">Calcul théorique avant fiscalité et inflation. Le crédit et le placement sont supposés constants. La différence de cash-flow est placée du côté qui dépense le moins.</p>
   `;
 }
 
-function setupModal() {
-  const modal = document.getElementById('modal');
-  document.getElementById('btn-detail')?.addEventListener('click', () => {
-    if (lastInputs && lastResult) buildModal(lastInputs, lastResult);
-    modal.classList.add('open');
-  });
-  document.getElementById('modal-close')?.addEventListener('click', () => modal.classList.remove('open'));
-  modal?.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+function snapshotRawInputs() {
+  const ids = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','horizon','inflation-globale','inflation-avance','infl-loyer','infl-charges','infl-taxe','infl-entretien','flat-taxe'];
+  const out = {};
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    out[id] = el.type === 'checkbox' ? el.checked : el.value;
+  }
+  return out;
+}
+
+function restoreInputs(params) {
+  if (!params) return;
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el == null) return;
+    if (el.type === 'checkbox') el.checked = !!val;
+    else if (val != null) el.value = val;
+  };
+  for (const [k, v] of Object.entries(params)) setVal(k, v);
 }
 
 function run() {
@@ -291,36 +371,62 @@ function run() {
     lastInputs = inputs;
     lastResult = result;
 
-    document.getElementById('result-section').classList.remove('hidden');
     renderChart(result.annees);
     renderTable(result.annees);
     buildModal(inputs, result);
+    storage.save(SAVED_ID, snapshotRawInputs());
   } catch (e) {
     console.error('Run failed:', e);
   }
 }
 
 function init() {
-  document.getElementById('btn-calc').addEventListener('click', run);
+  const saved = storage.load(SAVED_ID);
+  if (saved) restoreInputs(saved);
 
   // Live update notaire display when prix or pct changes
   document.getElementById('prix')?.addEventListener('input', updateNotaireDisplay);
   document.getElementById('notaire-pct')?.addEventListener('input', updateNotaireDisplay);
   updateNotaireDisplay();
 
-  // Auto-recalc on change
-  const inputIds = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','horizon'];
+  // Inflation advanced mode toggle
+  const advCheckbox = document.getElementById('inflation-avance');
+  const detailBlock = document.getElementById('inflation-detail');
+  advCheckbox?.addEventListener('change', () => {
+    detailBlock.classList.toggle('hidden', !advCheckbox.checked);
+    if (advCheckbox.checked) {
+      const g = document.getElementById('inflation-globale')?.value;
+      ['infl-loyer','infl-charges','infl-taxe','infl-entretien'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = g;
+      });
+    }
+    run();
+  });
+
+  // Fiscalité info-button toggle
+  const fiscaliteInfoBtn = document.getElementById('flat-taxe-info-btn');
+  const fiscaliteDetail = document.getElementById('flat-taxe-detail');
+  fiscaliteInfoBtn?.addEventListener('click', () => {
+    const willShow = fiscaliteDetail.classList.contains('hidden');
+    fiscaliteDetail.classList.toggle('hidden');
+    fiscaliteInfoBtn.setAttribute('aria-expanded', String(willShow));
+  });
+
+  // Auto-recalc on change (blur or spinner — avoids redraw on every keystroke)
+  const inputIds = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','horizon','inflation-globale','infl-loyer','infl-charges','infl-taxe','infl-entretien','flat-taxe'];
   inputIds.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('change', () => {
-      if (!document.getElementById('result-section').classList.contains('hidden')) {
-        run();
-      }
-    });
+    el.addEventListener('change', run);
   });
 
-  setupModal();
+  setupModal({
+    openBtnId: 'btn-detail',
+    onOpen: () => { if (lastInputs && lastResult) buildModal(lastInputs, lastResult); },
+  });
+  setupTooltips();
+  run(); // initial render
 }
 
 init();
