@@ -13,6 +13,17 @@ export function getInputs() {
   };
 }
 
+export function setInputs(data) {
+  if (!data) return;
+  document.getElementById('annee').value = data.annee || '2026';
+  document.getElementById('parts').value = data.parts ?? 1;
+  document.getElementById('salaire').value = data.salaire ?? '';
+  document.getElementById('micro-ca').value = data.microCa ?? '';
+  document.getElementById('micro-type').value = data.microType || 'vente';
+  document.getElementById('div-brut').value = data.divBrut ?? '';
+  document.getElementById('div-mode').value = data.divMode || 'reel';
+}
+
 export function calcImpotsParTranche(qf, tranches) {
   let reste = qf;
   let precedent = 0;

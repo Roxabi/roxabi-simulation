@@ -160,3 +160,35 @@ th { color: var(--text-muted); font-weight: 500; }
 }
 .detail-step .expr { color: var(--text-muted); font-size: 0.8rem; }
 .detail-step .res { color: var(--accent-2); font-weight: 700; }
+
+/* Simulation bar */
+.sim-bar {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.sim-bar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sim-bar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.sim-select {
+  width: auto;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  margin-bottom: 0;
+  min-width: 160px;
+}
+.btn-small {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}

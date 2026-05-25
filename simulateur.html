@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simulateur TMI & Investissement</title>
+<title>Calculateur de TMI</title>
 <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 <div class="container">
-  <h1>Simulateur TMI & Investissement</h1>
-  <p class="subtitle">Étape 1 : renseignez votre foyer fiscal et votre année d'imposition.</p>
+  <h1>Calculateur de TMI</h1>
+  <p class="subtitle">Renseignez votre foyer fiscal pour obtenir votre tranche marginale d'imposition.</p>
 
   <!-- Bloc unique Foyer + Imposition (collapsible) -->
   <div id="main-block" class="card main-card collapsed">
@@ -22,6 +22,19 @@
     </div>
 
     <div class="main-body">
+      <!-- Barre de gestion des simulations -->
+      <div class="sim-bar">
+        <div class="sim-bar-row">
+          <span class="muted" id="sim-label">Simulation active</span>
+          <div class="sim-bar-actions">
+            <select id="sim-selector" class="sim-select">
+              <option value="">Charger une simulation…</option>
+            </select>
+            <button id="btn-new-sim" class="btn btn-outline btn-small">Nouvelle simulation</button>
+          </div>
+        </div>
+      </div>
+
       <label for="annee">Année fiscale (revenus de l'année N-1)</label>
       <select id="annee">
         <option value="2024">2024 (revenus 2023)</option>
@@ -92,24 +105,6 @@
           <span class="muted">Tranche marginale d'imposition (TMI) :</span>
           <span class="tmi-badge" id="res-tmi">—</span>
           <button id="btn-detail" class="btn btn-outline" style="margin-left:auto;">Détail du calcul</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Placeholder comparateur -->
-  <div class="card">
-    <h2>Comparateur d'investissements</h2>
-    <p class="muted">Sera activé une fois la TMI connue. Deux scénarios côte-à-côte : immobilier vs placement à taux fixe.</p>
-    <div id="compare-placeholder" style="opacity:0.5; pointer-events:none;">
-      <div class="row">
-        <div>
-          <label>Scénario A — Immobilier (à configurer)</label>
-          <input type="text" placeholder="Montant investi, loyer, charges..." disabled>
-        </div>
-        <div>
-          <label>Scénario B — Placement fixe (à configurer)</label>
-          <input type="text" placeholder="Capital, taux, durée..." disabled>
         </div>
       </div>
     </div>
