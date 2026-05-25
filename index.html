@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur TMI & Investissement</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="container">
+  <h1>Simulateur TMI & Investissement</h1>
+  <p class="subtitle">Étape 1 : renseignez votre foyer fiscal et votre année d'imposition.</p>
+
+  <!-- Bloc unique Foyer + Imposition (collapsible) -->
+  <div id="main-block" class="card main-card collapsed">
+    <div class="result-toggle" id="main-toggle">
+      <h2>Foyer fiscal & Imposition</h2>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="tmi-inline" id="res-tmi-inline">TMI : —</span>
+        <span class="chevron">▼</span>
+      </div>
+    </div>
+
+    <div class="main-body">
+      <label for="annee">Année fiscale (revenus de l'année N-1)</label>
+      <select id="annee">
+        <option value="2024">2024 (revenus 2023)</option>
+        <option value="2025">2025 (revenus 2024)</option>
+        <option value="2026" selected>2026 (revenus 2025)</option>
+      </select>
+
+      <label for="parts">Nombre de parts au quotient familial</label>
+      <input id="parts" type="number" min="0.5" step="0.5" value="1">
+
+      <label for="salaire">Revenus salariés — net imposable annuel (€)</label>
+      <input id="salaire" type="number" min="0" step="100" placeholder="45000">
+
+      <div class="row">
+        <div>
+          <label for="micro-ca">Micro-entreprise — CA annuel (€)</label>
+          <input id="micro-ca" type="number" min="0" step="100" placeholder="0">
+        </div>
+        <div>
+          <label for="micro-type">Type d'activité</label>
+          <select id="micro-type">
+            <option value="vente">Vente / Restauration (abattement 71%)</option>
+            <option value="service">Prestations BIC (abattement 50%)</option>
+            <option value="bnc">Professions libérales BNC (abattement 34%)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="div-brut">Dividendes bruts (€)</label>
+          <input id="div-brut" type="number" min="0" step="100" placeholder="0">
+        </div>
+        <div>
+          <label for="div-mode">Mode d'imposition</label>
+          <select id="div-mode">
+            <option value="reel">Barème progressif (abattement 40%)</option>
+            <option value="flat">Flat tax / PFU (30%)</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="btn-calc">Calculer ma TMI</button>
+      <span class="muted" id="auto-hint" style="margin-left:10px;"></span>
+
+      <!-- Sous-bloc résultat -->
+      <div id="result-block" class="hidden" style="margin-top: 16px;">
+        <div class="result-grid">
+          <div class="kpi">
+            <div class="value" id="res-revenu-imposable">—</div>
+            <div class="label">Revenu imposable total</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="res-quotient">—</div>
+            <div class="label">Quotient familial (QF)</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="res-impot">—</div>
+            <div class="label">Impôt théorique IR</div>
+          </div>
+          <div class="kpi">
+            <div class="value" id="res-taux-moyen">—</div>
+            <div class="label">Taux moyen d'imposition</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <span class="muted">Tranche marginale d'imposition (TMI) :</span>
+          <span class="tmi-badge" id="res-tmi">—</span>
+          <button id="btn-detail" class="btn btn-outline" style="margin-left:auto;">Détail du calcul</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Placeholder comparateur -->
+  <div class="card">
+    <h2>Comparateur d'investissements</h2>
+    <p class="muted">Sera activé une fois la TMI connue. Deux scénarios côte-à-côte : immobilier vs placement à taux fixe.</p>
+    <div id="compare-placeholder" style="opacity:0.5; pointer-events:none;">
+      <div class="row">
+        <div>
+          <label>Scénario A — Immobilier (à configurer)</label>
+          <input type="text" placeholder="Montant investi, loyer, charges..." disabled>
+        </div>
+        <div>
+          <label>Scénario B — Placement fixe (à configurer)</label>
+          <input type="text" placeholder="Capital, taux, durée..." disabled>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal détail -->
+<div id="modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Détail du calcul</h3>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
