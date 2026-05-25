@@ -1,9 +1,13 @@
 import { getInputs, setInputs, computeFiscal } from './fiscal.js';
 import { renderResults, buildModal, setupToggle, setupModal } from './ui.js';
-import { initTab, save, load, getAllSims } from './storage.js';
+import { initTab, save, load, remove, rename, getAllSims } from './storage.js';
 
 let hasCalculatedOnce = false;
 const tabId = initTab();
+
+function simLabel(s) {
+  return s.name ? `${s.name} (#${s.id})` : `#${s.id}`;
+}
 
 function populateSelector() {
   const sel = document.getElementById('sim-selector');
@@ -14,16 +18,18 @@ function populateSelector() {
   for (const s of sims) {
     const opt = document.createElement('option');
     opt.value = s.id;
-    opt.textContent = `#${s.id}`;
+    opt.textContent = simLabel(s);
     if (s.id === tabId) opt.disabled = true;
     sel.appendChild(opt);
   }
   sel.value = current;
 }
 
-function updateSimLabel() {
-  const label = document.getElementById('sim-label');
-  if (label) label.textContent = `Simulation active : #${tabId}`;
+function updateSimName() {
+  const sims = getAllSims();
+  const current = sims.find(s => s.id === tabId);
+  const input = document.getElementById('sim-name');
+  if (input) input.value = current?.name || '';
 }
 
 function run() {
@@ -43,8 +49,8 @@ if (saved) {
   run();
 }
 
-updateSimLabel();
 populateSelector();
+updateSimName();
 
 setupToggle();
 setupModal();
@@ -69,5 +75,22 @@ document.getElementById('sim-selector')?.addEventListener('change', (e) => {
 
 document.getElementById('btn-new-sim')?.addEventListener('click', () => {
   history.replaceState(null, '', '#');
+  window.location.reload();
+});
+
+document.getElementById('sim-name')?.addEventListener('change', (e) => {
+  rename(tabId, e.target.value.trim());
+  populateSelector();
+});
+
+document.getElementById('btn-delete-sim')?.addEventListener('click', () => {
+  if (!confirm('Supprimer cette simulation ?')) return;
+  remove(tabId);
+  const remaining = getAllSims();
+  if (remaining.length > 0) {
+    history.replaceState(null, '', '#' + remaining[0].id);
+  } else {
+    history.replaceState(null, '', '#');
+  }
   window.location.reload();
 });

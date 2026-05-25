@@ -27,8 +27,7 @@ function pruneIfNeeded() {
   metas.sort((a, b) => (a.lastUsed || a.created || 0) - (b.lastUsed || a.created || 0));
   const toRemove = metas.slice(0, metas.length - MAX + 1);
   for (const s of toRemove) {
-    localStorage.removeItem(dataKey(s.id));
-    localStorage.removeItem(metaKey(s.id));
+    remove(s.id);
   }
 }
 
@@ -59,6 +58,18 @@ export function load(id) {
   if (!raw) return null;
   touch(id);
   return JSON.parse(raw);
+}
+
+export function remove(id) {
+  localStorage.removeItem(dataKey(id));
+  localStorage.removeItem(metaKey(id));
+}
+
+export function rename(id, name) {
+  const meta = getMeta(id);
+  if (!meta) return;
+  meta.name = name;
+  setMeta(id, meta);
 }
 
 export function getAllIds() {

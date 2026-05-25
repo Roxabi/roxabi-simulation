@@ -25,12 +25,15 @@
       <!-- Barre de gestion des simulations -->
       <div class="sim-bar">
         <div class="sim-bar-row">
-          <span class="muted" id="sim-label">Simulation active</span>
+          <div class="sim-name-wrap">
+            <input id="sim-name" class="sim-name-input" type="text" placeholder="Nommer cette simulation…" title="Nom de la simulation">
+          </div>
           <div class="sim-bar-actions">
             <select id="sim-selector" class="sim-select">
               <option value="">Charger une simulation…</option>
             </select>
-            <button id="btn-new-sim" class="btn btn-outline btn-small">Nouvelle simulation</button>
+            <button id="btn-new-sim" class="btn btn-outline btn-small">Nouvelle</button>
+            <button id="btn-delete-sim" class="btn btn-outline btn-small btn-danger" title="Supprimer cette simulation">🗑</button>
           </div>
         </div>
       </div>
