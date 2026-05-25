@@ -7,9 +7,13 @@ function getInputs() {
     const el = document.getElementById(id);
     return el ? parseFloat(el.value.replace(',', '.')) || 0 : 0;
   };
+  const prix = val('prix');
+  const notairePct = val('notaire-pct');
+  const notaire = Math.round(prix * notairePct / 100);
   return {
-    prix: val('prix'),
-    notaire: val('notaire'),
+    prix,
+    notaire,
+    notairePct,
     apport: val('apport'),
     tauxCredit: val('taux-credit') / 100,
     dureeCredit: val('duree-credit'),
@@ -22,6 +26,14 @@ function getInputs() {
     rendement: val('rendement') / 100,
     horizon: val('horizon'),
   };
+}
+
+function updateNotaireDisplay() {
+  const prix = parseFloat(document.getElementById('prix')?.value) || 0;
+  const pct = parseFloat(document.getElementById('notaire-pct')?.value) || 0;
+  const montant = Math.round(prix * pct / 100);
+  const display = document.getElementById('notaire-display');
+  if (display) display.textContent = '≈ ' + fmtEUR(montant);
 }
 
 function computeMensualite(K, tauxAnnuel, dureeAnnees) {
@@ -48,7 +60,7 @@ function computeScenarios(d) {
 
   const annees = [];
   let patrimoineAchat = 0;
-  let patrimoineLoc = d.apport; // apport investi dès le départ
+  let patrimoineLoc = d.apport + d.notaire + d.travaux; // argent non dépensé côté location
 
   for (let t = 0; t <= d.horizon; t++) {
     // Achat
@@ -189,8 +201,13 @@ function run() {
 function init() {
   document.getElementById('btn-calc').addEventListener('click', run);
 
-  // Auto-recalc on change (debounced lightly by human input)
-  const inputIds = ['prix','notaire','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','horizon'];
+  // Live update notaire display when prix or pct changes
+  document.getElementById('prix')?.addEventListener('input', updateNotaireDisplay);
+  document.getElementById('notaire-pct')?.addEventListener('input', updateNotaireDisplay);
+  updateNotaireDisplay();
+
+  // Auto-recalc on change
+  const inputIds = ['prix','notaire-pct','apport','taux-credit','duree-credit','travaux','entretien','taxe','plus-value','loyer','charges-loc','rendement','horizon'];
   inputIds.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;

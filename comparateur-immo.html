@@ -32,8 +32,9 @@
       <label for="prix">Prix du bien (€)</label>
       <input id="prix" type="number" min="0" step="1000" placeholder="300000" value="300000">
 
-      <label for="notaire">Frais de notaire (€)</label>
-      <input id="notaire" type="number" min="0" step="100" placeholder="24000" value="24000">
+      <label for="notaire-pct">Frais de notaire (%)</label>
+      <input id="notaire-pct" type="number" min="0" max="20" step="0.1" placeholder="8" value="8">
+      <span class="muted" id="notaire-display">≈ 24 000 €</span>
 
       <label for="apport">Apport (€)</label>
       <input id="apport" type="number" min="0" step="1000" placeholder="50000" value="50000">
