@@ -1,5 +1,5 @@
 import { fmtEUR, fmtPct } from './format.js';
-import { ABATTEMENT_MICRO } from './data.js';
+import { DATA } from './data.js';
 
 export function renderResults(result) {
   document.getElementById('res-revenu-imposable').textContent = fmtEUR(result.revenuImposable);
@@ -10,8 +10,6 @@ export function renderResults(result) {
   document.getElementById('res-tmi-inline').textContent = 'TMI : ' + fmtPct(result.tmi);
 
   document.getElementById('result-block').classList.remove('hidden');
-  document.getElementById('compare-placeholder').style.opacity = '1';
-  document.getElementById('compare-placeholder').style.pointerEvents = 'auto';
   document.getElementById('auto-hint').textContent = 'Auto-recalc activé.';
 }
 
@@ -31,7 +29,7 @@ export function buildModal(d, result) {
       <div class="res">${fmtEUR(d.salaire)}</div>
     </div>
     <div class="detail-step">
-      <div class="expr">Micro-entreprise — CA ${fmtEUR(d.microCa)} × ${fmtPct(1 - (ABATTEMENT_MICRO[d.microType] || 0))} imposable</div>
+      <div class="expr">Micro-entreprise — CA ${fmtEUR(d.microCa)} × ${fmtPct(1 - (DATA.micro[d.microType] || 0))} imposable</div>
       <div class="res">${fmtEUR(result.microImposable)}</div>
     </div>
     <div class="detail-step">
