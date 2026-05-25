@@ -56,22 +56,19 @@ function computeScenarios(d) {
   const mensualite = computeMensualite(capitalEmprunte, d.tauxCredit, d.dureeCredit);
   const depenseAchatAnnuelle = mensualite * 12 + d.entretien + d.taxe;
   const depenseLocAnnuelle = d.loyer * 12 + d.chargesLoc * 12;
-  const epargneLocAnnuelle = Math.max(0, depenseAchatAnnuelle - depenseLocAnnuelle);
 
   const annees = [];
-  let patrimoineAchat = 0;
-  let patrimoineLoc = d.apport + d.notaire + d.travaux; // argent non dépensé côté location
+  let potAchat = 0; // épargne secondaire côté acheteur
+  let potLoc = d.apport + d.notaire + d.travaux; // capital initial côté locataire
 
   for (let t = 0; t <= d.horizon; t++) {
-    // Achat
+    // Achat — valeur nette du bien moins CRD
     const valeurBien = (d.prix + d.travaux) * Math.pow(1 + d.plusValue, t);
     const crd = capitalRestantDu(capitalEmprunte, d.tauxCredit, d.dureeCredit, t);
-    patrimoineAchat = valeurBien - crd;
+    const patrimoineAchat = (valeurBien - crd) + potAchat;
 
-    // Location + investissement
-    if (t > 0) {
-      patrimoineLoc = (patrimoineLoc + epargneLocAnnuelle) * (1 + d.rendement);
-    }
+    // Location — pot de placement
+    const patrimoineLoc = potLoc;
 
     annees.push({
       annee: t,
@@ -82,13 +79,34 @@ function computeScenarios(d) {
       mensualite,
       depenseAchatAnnuelle,
       depenseLocAnnuelle,
-      epargneLocAnnuelle,
       valeurBien,
       crd,
+      potAchat,
+      potLoc,
     });
+
+    if (t >= d.horizon) break; // pas de projection après la dernière année
+
+    // Placement de la différence de cash-flow du côté qui économise
+    const diffDepense = depenseAchatAnnuelle - depenseLocAnnuelle;
+    if (diffDepense > 0) {
+      // Locataire dépense moins → il place la différence
+      potLoc = (potLoc + diffDepense) * (1 + d.rendement);
+      potAchat = potAchat * (1 + d.rendement);
+    } else if (diffDepense < 0) {
+      // Acheteur dépense moins → il place la différence
+      potAchat = (potAchat + Math.abs(diffDepense)) * (1 + d.rendement);
+      potLoc = potLoc * (1 + d.rendement);
+    } else {
+      potLoc = potLoc * (1 + d.rendement);
+      potAchat = potAchat * (1 + d.rendement);
+    }
   }
 
-  return { annees, capitalEmprunte, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneLocAnnuelle };
+  const epargneAnnuelle = Math.abs(depenseAchatAnnuelle - depenseLocAnnuelle);
+  const gagnantEconomie = depenseAchatAnnuelle < depenseLocAnnuelle ? 'achat' : 'location';
+
+  return { annees, capitalEmprunte, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneAnnuelle, gagnantEconomie };
 }
 
 function renderChart(annees) {
@@ -189,8 +207,10 @@ let lastResult = null;
 let lastInputs = null;
 
 function buildModal(d, res) {
-  const { capitalEmprunte, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneLocAnnuelle } = res;
+  const { capitalEmprunte, mensualite, depenseAchatAnnuelle, depenseLocAnnuelle, epargneAnnuelle, gagnantEconomie } = res;
   const totalAcquisition = d.prix + d.notaire + d.travaux;
+  const diffSign = depenseAchatAnnuelle - depenseLocAnnuelle;
+  const diffLabel = diffSign > 0 ? 'Locataire économise' : (diffSign < 0 ? 'Acheteur économise' : 'Égalité');
 
   document.getElementById('modal-content').innerHTML = `
     <h4 style="margin:0 0 8px; color:var(--accent);">Hypothèses achat</h4>
@@ -223,8 +243,8 @@ function buildModal(d, res) {
       <div class="res">${fmtEUR(d.loyer * 12)} + ${fmtEUR(d.chargesLoc * 12)} = ${fmtEUR(depenseLocAnnuelle)}</div>
     </div>
     <div class="detail-step">
-      <div class="expr">Économie locative (différence dépensée en moins chaque année)</div>
-      <div class="res">${fmtEUR(depenseAchatAnnuelle)} - ${fmtEUR(depenseLocAnnuelle)} = ${epargneLocAnnuelle > 0 ? '+' : ''}${fmtEUR(epargneLocAnnuelle)}</div>
+      <div class="expr">Différence de cash-flow — ${diffLabel}</div>
+      <div class="res">${fmtEUR(Math.abs(depenseAchatAnnuelle - depenseLocAnnuelle))} / an → placé côté ${gagnantEconomie === 'achat' ? 'acheteur' : 'locataire'}</div>
     </div>
 
     <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine achat</h4>
@@ -233,12 +253,12 @@ function buildModal(d, res) {
       <div class="res">${fmtEUR(d.prix + d.travaux)} × (1 + ${fmtPct(d.plusValue)})^t</div>
     </div>
     <div class="detail-step">
-      <div class="expr">Capital restant dû (CRD) à l'année t</div>
-      <div class="res">Formule d'amortissement — déduit de la valeur de revente</div>
+      <div class="expr">Capital restant dû (CRD) à l'année t — remboursé à la revente</div>
+      <div class="res">Formule d'amortissement</div>
     </div>
     <div class="detail-step">
-      <div class="expr">Patrimoine net achat = Valeur du bien - CRD</div>
-      <div class="res">À la revente, le crédit restant est remboursé — seule la valeur nette compte.</div>
+      <div class="expr">Patrimoine net achat = (Valeur du bien - CRD) + épargne placée</div>
+      <div class="res">Si l'acheteur dépense moins que le locataire, la différence est placée au rendement ${fmtPct(d.rendement)}.</div>
     </div>
 
     <h4 style="margin:16px 0 8px; color:var(--accent);">Patrimoine location + placement</h4>
@@ -247,10 +267,10 @@ function buildModal(d, res) {
       <div class="res">${fmtEUR(d.apport)} + ${fmtEUR(d.notaire)} + ${fmtEUR(d.travaux)} = ${fmtEUR(d.apport + d.notaire + d.travaux)}</div>
     </div>
     <div class="detail-step">
-      <div class="expr">Chaque année : on ajoute l'économie locative au capital, puis on capitalise au rendement</div>
-      <div class="res">Capital(t) = (Capital(t-1) + ${fmtEUR(epargneLocAnnuelle)}) × (1 + ${fmtPct(d.rendement)})</div>
+      <div class="expr">Chaque année : on ajoute l'économie au pot du côté gagnant, puis on capitalise</div>
+      <div class="res">Pot(t) = (Pot(t-1) + économie annuelle) × (1 + ${fmtPct(d.rendement)})</div>
     </div>
-    <p class="muted">Calcul théorique avant fiscalité et inflation. Le crédit et le placement sont supposés constants.</p>
+    <p class="muted">Calcul théorique avant fiscalité et inflation. Le crédit et le placement sont supposés constants. La différence de cash-flow est placée du côté qui dépense le moins.</p>
   `;
 }
 
