@@ -54,6 +54,10 @@ roxabi-simulation/
 - **Modules ES** : utiliser `import`/`export`. Pas de variables globales.
 - **Barèmes IR** (2024–2026) et **abattements micro** (71% / 50% / 34%) dans `js/data.js` avec fallback inline.
 
+## Patterns partagés
+
+Pour créer ou maintenir un simulateur, voir `docs/simulator-patterns.md` — référence des modules partagés (modal, tooltip, storage versionné, format, theme) et de la checklist nouveau simulateur.
+
 ## Déploiement
 
 ```bash

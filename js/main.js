@@ -1,10 +1,14 @@
 import { loadData } from './data.js';
 import { getInputs, setInputs, computeFiscal } from './fiscal.js';
-import { renderResults, buildModal, setupToggle, setupModal } from './ui.js';
-import { initTab, save, load, remove, rename, getAllSims } from './storage.js';
+import { renderResults, buildModal, setupToggle } from './ui.js';
+import { createStorage } from './storage.js';
+import { setupModal } from './modal.js';
+import { setupTooltips } from './info-tooltip.js';
+
+const storage = createStorage('tmi', 1);
 
 let hasCalculatedOnce = false;
-const tabId = initTab();
+const tabId = storage.initTab();
 
 function simLabel(s) {
   return s.name ? `${s.name} (#${s.id})` : `#${s.id}`;
@@ -15,7 +19,7 @@ function populateSelector() {
   if (!sel) return;
   const current = sel.value;
   sel.innerHTML = '<option value="">Charger une simulation…</option>';
-  const sims = getAllSims();
+  const sims = storage.getAllSims();
   for (const s of sims) {
     const opt = document.createElement('option');
     opt.value = s.id;
@@ -27,7 +31,7 @@ function populateSelector() {
 }
 
 function updateSimName() {
-  const sims = getAllSims();
+  const sims = storage.getAllSims();
   const current = sims.find(s => s.id === tabId);
   const input = document.getElementById('sim-name');
   if (input) input.value = current?.name || '';
@@ -39,7 +43,7 @@ async function run() {
     const result = computeFiscal(inputs);
     renderResults(result);
     buildModal(inputs, result);
-    save(tabId, inputs);
+    storage.save(tabId, inputs);
     hasCalculatedOnce = true;
     populateSelector();
   } catch (e) {
@@ -50,7 +54,7 @@ async function run() {
 async function init() {
   await loadData();
 
-  const saved = load(tabId);
+  const saved = storage.load(tabId);
   if (saved) {
     setInputs(saved);
     await run();
@@ -60,7 +64,8 @@ async function init() {
   updateSimName();
 
   setupToggle();
-  setupModal();
+  setupModal({ openBtnId: 'btn-detail' });
+  setupTooltips();
 
   document.getElementById('btn-calc').addEventListener('click', () => {
     hasCalculatedOnce = true;
@@ -86,14 +91,14 @@ async function init() {
   });
 
   document.getElementById('sim-name')?.addEventListener('change', (e) => {
-    rename(tabId, e.target.value.trim());
+    storage.rename(tabId, e.target.value.trim());
     populateSelector();
   });
 
   document.getElementById('btn-delete-sim')?.addEventListener('click', () => {
     if (!confirm('Supprimer cette simulation ?')) return;
-    remove(tabId);
-    const remaining = getAllSims();
+    storage.remove(tabId);
+    const remaining = storage.getAllSims();
     if (remaining.length > 0) {
       history.replaceState(null, '', '#' + remaining[0].id);
     } else {

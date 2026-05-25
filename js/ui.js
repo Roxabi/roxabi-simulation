@@ -69,9 +69,3 @@ export function setupToggle() {
   });
 }
 
-export function setupModal() {
-  const modal = document.getElementById('modal');
-  document.getElementById('btn-detail').addEventListener('click', () => modal.classList.add('open'));
-  document.getElementById('modal-close').addEventListener('click', () => modal.classList.remove('open'));
-  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
-}

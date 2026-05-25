@@ -16,7 +16,10 @@
     </svg>
     Roxabi Simulation
   </a>
-  <button id="theme-toggle"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  <button id="theme-toggle">
+    <span class="icon-sun"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
+    <span class="icon-moon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+  </button>
 </nav>
 
 <div class="container">
@@ -24,7 +27,7 @@
   <p class="subtitle">Renseignez votre foyer fiscal pour obtenir votre impôt sur le revenu et votre tranche marginale.</p>
 
   <!-- Bloc unique Foyer + Imposition (collapsible) -->
-  <div id="main-block" class="card main-card collapsed">
+  <div id="main-block" class="card main-card">
     <div class="result-toggle" id="main-toggle">
       <h2>Foyer fiscal & Imposition</h2>
       <div style="display:flex; align-items:center; gap:8px;">
@@ -100,7 +103,10 @@
         <div class="result-grid">
           <div class="kpi">
             <div class="value" id="res-revenu-imposable">—</div>
-            <div class="label">Revenu imposable total</div>
+            <div class="label metric-with-info">
+              Revenu imposable total
+              <button type="button" class="info-tooltip" data-tooltip="Salaires nets imposables + micro-entreprise après abattement + dividendes (en mode réel uniquement, pas en flat tax)." aria-label="Aide revenu imposable">i</button>
+            </div>
           </div>
           <div class="kpi">
             <div class="value" id="res-quotient">—</div>
@@ -112,14 +118,23 @@
           </div>
           <div class="kpi">
             <div class="value" id="res-taux-moyen">—</div>
-            <div class="label">Taux moyen d'imposition</div>
+            <div class="label metric-with-info">
+              Taux moyen d'imposition
+              <button type="button" class="info-tooltip" data-tooltip="Impôt total ÷ revenu imposable. Différent de la TMI : c'est ce que vous payez effectivement en moyenne." aria-label="Aide taux moyen">i</button>
+            </div>
           </div>
         </div>
 
         <div style="margin-top: 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <span class="muted">Tranche marginale d'imposition (TMI) :</span>
+          <span class="muted metric-with-info">
+            Tranche marginale d'imposition (TMI) :
+            <button type="button" class="info-tooltip" data-tooltip="Dernière tranche du barème IR active sur votre QF. Détermine le taux marginal sur le prochain euro gagné — pas le taux global." aria-label="Aide TMI">i</button>
+          </span>
           <span class="tmi-badge" id="res-tmi">—</span>
           <button id="btn-detail" class="btn btn-outline" style="margin-left:auto;">Détail du calcul</button>
+        </div>
+        <div class="source-badge">
+          Barèmes IR 2024–2026 — DGFiP · Calcul 100 % local · Aucune donnée envoyée
         </div>
       </div>
     </div>
@@ -151,6 +166,8 @@
     <a href="index.html">Accueil</a>
     <span class="footer-sep">&#183;</span>
     <a href="comparateur-immo.html">Comparateur</a>
+    <span class="footer-sep">&#183;</span>
+    <a href="mentions-legales.html">Mentions légales</a>
   </div>
 </footer>
 

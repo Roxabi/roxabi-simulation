@@ -290,6 +290,10 @@ th { color: var(--text-muted); font-weight: 500; }
   position: static;
 }
 #theme-toggle:hover { border-color: var(--accent); background: var(--accent-dim); }
+#theme-toggle .icon-sun { display: none; }
+#theme-toggle .icon-moon { display: block; }
+[data-theme="light"] #theme-toggle .icon-sun { display: block; }
+[data-theme="light"] #theme-toggle .icon-moon { display: none; }
 
 /* Footer */
 .site-footer {
@@ -312,3 +316,59 @@ th { color: var(--text-muted); font-weight: 500; }
 .footer-links a { color: var(--accent); text-decoration: none; font-size: 0.8rem; }
 .footer-links a:hover { text-decoration: underline; }
 .footer-sep { color: var(--text-dim); }
+
+/* ─── Shared simulator UI helpers ─── */
+
+/* Inline info tooltip on metrics */
+.metric-with-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.info-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, serif;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  line-height: 1;
+}
+.info-tooltip:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.info-tooltip-popup {
+  position: absolute;
+  z-index: 1000;
+  max-width: 300px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  line-height: 1.4;
+}
+
+/* Source data badge (footer of result block) */
+.source-badge {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding: 10px 0 0;
+  margin: 16px 0 0;
+  text-align: center;
+}
