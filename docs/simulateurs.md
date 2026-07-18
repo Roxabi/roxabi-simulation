@@ -208,7 +208,7 @@ Analyser la **rentabilité brute et nette** d'un bien locatif, ainsi que le cash
 | | Durée | 240 mois | Durée totale du prêt |
 | | Taux emprunt | 3.5 % | Taux annuel du crédit immobilier |
 | | Taux assurance | 0.3 % | Taux annuel de l'assurance emprunteur |
-| | Différé | Aucun | Partiel (intérêts seuls) ou Total (0 € + capitalisation) |
+| | Différé | Aucun | Partiel (intérêts + assurance) ou Total (assurance seule + capitalisation) |
 | | Frais de dossier | 500 € | Frais bancaires de montage |
 | | Garantie | 0 € | Garantie hypothécaire ou caution |
 
@@ -233,8 +233,8 @@ n = durée en mois
 
 **Différé de crédit** :
 - **Aucun** : amortissement standard dès le premier mois.
-- **Partiel** : pendant `d` mois, mensualité = intérêts seuls (`K × i`). Le capital reste constant. Après le différé, amortissement standard sur la durée restante.
-- **Total** : pendant `d` mois, mensualité = 0 €. Les intérêts mensuels sont capitalisés (`K ← K × (1+i)`). Après le différé, amortissement standard sur le capital majoré et la durée restante.
+- **Partiel** : pendant `d` mois, mensualité = intérêts (`K × i`) + assurance. Le capital reste constant. Après le différé, amortissement standard sur la durée restante.
+- **Total** : pendant `d` mois, mensualité = assurance seule. Les intérêts mensuels sont capitalisés (`K ← K × (1+i)`). Après le différé, amortissement standard sur le capital majoré et la durée restante.
 
 **Mensualité assurance emprunteur** :
 ```
@@ -243,8 +243,9 @@ Assurance = K × taux_assurance / 12
 
 **Coût total du prêt** :
 ```
-Coût = K + Σ(intérêts) + Σ(assurance) + frais_dossier + garantie
+Coût = K + Σ(intérêts) + Σ(assurance)
 ```
+Frais de dossier et garantie ne sont pas ajoutés ici : ils sont déjà financés dans `K` (inclus dans le total d'acquisition).
 
 **Rentabilité brute** :
 ```

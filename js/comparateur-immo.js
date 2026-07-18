@@ -42,22 +42,25 @@ function getInputs() {
 }
 
 function updateNotaireDisplay() {
-  const prix = parseFloat(document.getElementById('prix')?.value) || 0;
-  const pct = parseFloat(document.getElementById('notaire-pct')?.value) || 0;
+  const num = id => parseFloat((document.getElementById(id)?.value || '').replace(',', '.')) || 0;
+  const prix = num('prix');
+  const pct = num('notaire-pct');
   const montant = Math.round(prix * pct / 100);
   const display = document.getElementById('notaire-display');
   if (display) display.textContent = '≈ ' + fmtEUR(montant);
 }
 
 function computeMensualite(K, tauxAnnuel, dureeAnnees) {
-  if (K <= 0 || tauxAnnuel <= 0 || dureeAnnees <= 0) return 0;
-  const i = tauxAnnuel / 12;
+  if (K <= 0 || dureeAnnees <= 0) return 0;
   const n = dureeAnnees * 12;
+  if (tauxAnnuel <= 0) return K / n; // prêt à taux zéro : amortissement linéaire
+  const i = tauxAnnuel / 12;
   return (K * i) / (1 - Math.pow(1 + i, -n));
 }
 
 function capitalRestantDu(K, tauxAnnuel, dureeAnnees, anneesEcoulees) {
-  if (anneesEcoulees >= dureeAnnees) return 0;
+  if (K <= 0 || anneesEcoulees >= dureeAnnees) return 0;
+  if (tauxAnnuel <= 0) return K * (1 - anneesEcoulees / dureeAnnees);
   const i = tauxAnnuel / 12;
   const n = dureeAnnees * 12;
   const k = anneesEcoulees * 12;

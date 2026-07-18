@@ -165,11 +165,11 @@ function computeRentabilite(d) {
 
     if (dDiff > 0 && m <= dDiff) {
       if (d.differe === 'total') {
-        // Intérêts capitalisés
+        // Intérêts capitalisés ; l'assurance reste due chaque mois dès le déblocage
         const interetMois = K * i;
         totalInterets += interetMois;
         K += interetMois;
-        mensualite = 0;
+        mensualite = assuranceMois;
       } else {
         // Partiel = intérêts seuls
         const interetMois = K * i;
@@ -194,7 +194,8 @@ function computeRentabilite(d) {
     moisData.push({ mensualite, assuranceMois, capital: K });
   }
 
-  const coutTotalPret = K0 + totalInterets + totalAssurance + d.fraisDossier + d.garantie;
+  // Dossier + garantie sont déjà dans K0 (financés via totalAcquisition) — ne pas les recompter
+  const coutTotalPret = K0 + totalInterets + totalAssurance;
 
   // Projection annuelle + TRI mono-projet
   // baseCF[0] = -apport (cash out au signing) ; baseCF[s≥1] = cashflow net annuel de l'année [s-1, s)
@@ -572,7 +573,7 @@ function buildModal(d, res) {
   const differeLabel = {
     aucun: 'Aucun',
     partiel: 'Partiel (intérêts seuls)',
-    total: 'Total (0 € + capitalisation)',
+    total: 'Total (assurance seule, intérêts capitalisés)',
   }[d.differe] || 'Aucun';
 
   document.getElementById('modal-content').innerHTML = `
@@ -621,7 +622,7 @@ function buildModal(d, res) {
     </div>
     <div class="detail-step">
       <div class="expr">Coût total du prêt</div>
-      <div class="res">${fmtEUR(montantEmprunte)} + ${fmtEUR(totalInterets)} (intérêts) + ${fmtEUR(totalAssurance)} (assurance) + ${fmtEUR(d.fraisDossier)} (dossier) + ${fmtEUR(d.garantie)} (garantie) = ${fmtEUR(coutTotalPret)}</div>
+      <div class="res">${fmtEUR(montantEmprunte)} + ${fmtEUR(totalInterets)} (intérêts) + ${fmtEUR(totalAssurance)} (assurance) = ${fmtEUR(coutTotalPret)} — dossier (${fmtEUR(d.fraisDossier)}) et garantie (${fmtEUR(d.garantie)}) déjà inclus dans le capital emprunté.</div>
     </div>
 
     <h4 style="margin:16px 0 8px; color:var(--accent);">Rentabilité (à A${h})</h4>
